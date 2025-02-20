@@ -273,7 +273,8 @@ bond <- bond |>
                       fill = NA,         
                       align = "right")
     
-  )
+  ) |> 
+  ungroup()
 
 
 end <- Sys.time()
