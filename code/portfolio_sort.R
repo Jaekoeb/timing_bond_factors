@@ -48,9 +48,8 @@ portfolio_sort <- function(data, signal, ret_col, quantile = 3) {
       return = weighted.mean(return, market_value),
       yield = weighted.mean(yield, market_value, na.rm = TRUE),
       duration = weighted.mean(duration, market_value, na.rm = TRUE),
-      market_value = mean(market_value)
-    ) |> 
-    ungroup()
+      market_value = mean(market_value),
+      .groups = "drop")
   
   
   # Aggregate among rating group
@@ -60,9 +59,8 @@ portfolio_sort <- function(data, signal, ret_col, quantile = 3) {
       return = mean(return),
       market_value = mean(market_value),
       yield = mean(yield),
-      duration = mean(duration)
-    ) |> 
-    ungroup()
+      duration = mean(duration),
+      .groups = "drop")
   
   
   # add long short portfolio
