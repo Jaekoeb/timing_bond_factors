@@ -1,0 +1,29 @@
+
+> xtable::xtable(t(perf),
++        caption = "Factor Metrics")
+% latex table generated in R 4.2.2 by xtable 1.8-4 package
+% Tue Mar  4 13:15:12 2025
+\begin{table}[ht]
+\centering
+\begin{tabular}{rrrrr}
+  \hline
+ & Annualized Return & Annualized Standard Deviation & Worst Drawdown & Annualized Sharpe Ratio (Rf=2\%) \\ 
+  \hline
+var5 & -6.26 & 7.59 & 69.72 & -1.07 \\ 
+  var10 & -5.74 & 7.53 & 68.74 & -1.01 \\ 
+  es10 & -7.41 & 8.65 & 75.96 & -1.07 \\ 
+  str & 4.46 & 5.90 & 8.95 & 0.41 \\ 
+  ltr & -1.25 & 4.45 & 23.82 & -0.72 \\ 
+  vola & 6.61 & 8.45 & 21.60 & 0.53 \\ 
+  skew & 2.44 & 4.13 & 8.11 & 0.10 \\ 
+  kurt & 2.32 & 3.88 & 7.68 & 0.08 \\ 
+  mom3 & -4.20 & 6.73 & 56.48 & -0.91 \\ 
+  mom6 & -4.28 & 7.01 & 57.28 & -0.88 \\ 
+  mom9 & -4.99 & 7.49 & 62.14 & -0.92 \\ 
+  mom12 & -5.54 & 7.75 & 65.46 & -0.96 \\ 
+   \hline
+\end{tabular}
+\caption{Factor Metrics} 
+\end{table}
+
+> sink()
