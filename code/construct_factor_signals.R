@@ -30,7 +30,7 @@ start <- Sys.time()
 bond <- bond |> 
   arrange(cusip, eom) |>   # make sure data is sorted by time within each group
   group_by(cusip) |> 
-  mutate(var5 = rollapplyr(ret_exc, 
+  mutate(var5 = rollapplyr(lag(ret_exc, 1), 
                            width = 36, 
                            FUN = function(x) {
                              if(sum(!is.na(x)) < 24) {
@@ -42,7 +42,7 @@ bond <- bond |>
                            fill = NA,         
                            align = "right"),
          
-         var10 = rollapplyr(ret_exc, 
+         var10 = rollapplyr(lag(ret_exc, 1), 
                             width = 36, 
                             FUN = function(x) {
                               if(sum(!is.na(x)) < 24) {
@@ -54,7 +54,7 @@ bond <- bond |>
                             fill = NA,         
                             align = "right"),
          
-         es10 = rollapplyr(ret_exc, 
+         es10 = rollapplyr(lag(ret_exc, 1), 
                            width = 36, 
                            FUN = function(x) {
                              if(sum(!is.na(x)) < 24) {
@@ -161,7 +161,7 @@ bond <- bond |>
     
     
     # Volatility
-    vola = rollapplyr(ret_exc, 
+    vola = rollapplyr(lag(ret_exc, 1), 
                       width = 36, 
                       FUN = function(x) {
                         if(sum(!is.na(x)) < 24) {
@@ -175,7 +175,7 @@ bond <- bond |>
     
     # Skewness
     # (compute negative skewness, negative signal)
-    skew = rollapplyr(ret_exc, 
+    skew = rollapplyr(lag(ret_exc, 1), 
                       width = 36, 
                       FUN = function(x) {
                         if(sum(!is.na(x)) < 24) {
@@ -189,7 +189,7 @@ bond <- bond |>
     
     
     # Kurtosis
-    kurt = rollapplyr(ret_exc, 
+    kurt = rollapplyr(lag(ret_exc, 1), 
                       width = 36, 
                       FUN = function(x) {
                         if(sum(!is.na(x)) < 24) {
@@ -222,7 +222,7 @@ bond <- bond |>
   group_by(cusip) |>
   mutate(
     
-    mom3 = rollapplyr(ret_exc, 
+    mom3 = rollapplyr(lag(ret_exc, 1), 
                       width = 3, 
                       FUN = function(x) {
                         if(sum(!is.na(x)) < 2) {
@@ -235,7 +235,7 @@ bond <- bond |>
                       align = "right"),
     
     
-    mom6 = rollapplyr(ret_exc, 
+    mom6 = rollapplyr(lag(ret_exc, 1), 
                       width = 6, 
                       FUN = function(x) {
                         if(sum(!is.na(x)) < 4) {
@@ -248,7 +248,7 @@ bond <- bond |>
                       align = "right"),
     
     
-    mom9 = rollapplyr(ret_exc, 
+    mom9 = rollapplyr(lag(ret_exc, 1), 
                       width = 9, 
                       FUN = function(x) {
                         if(sum(!is.na(x)) < 6) {
@@ -261,7 +261,7 @@ bond <- bond |>
                       align = "right"),
     
     
-    mom12 = rollapplyr(ret_exc, 
+    mom12 = rollapplyr(lag(ret_exc, 1), 
                       width = 12, 
                       FUN = function(x) {
                         if(sum(!is.na(x)) < 9) {
