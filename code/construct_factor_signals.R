@@ -36,7 +36,7 @@ bond <- bond |>
                              if(sum(!is.na(x)) < 24) {
                                NA
                              } else {
-                               sort(x[!is.na(x)])[2]
+                               -1 * sort(x[!is.na(x)])[2]
                              }
                            }, 
                            fill = NA,         
@@ -48,7 +48,7 @@ bond <- bond |>
                               if(sum(!is.na(x)) < 24) {
                                 NA
                               } else {
-                                sort(x[!is.na(x)])[4]
+                                -1 * sort(x[!is.na(x)])[4]
                               }
                             }, 
                             fill = NA,         
@@ -60,7 +60,7 @@ bond <- bond |>
                              if(sum(!is.na(x)) < 24) {
                                NA
                              } else {
-                               mean(sort(x[!is.na(x)])[1:4])
+                               -1 * mean(sort(x[!is.na(x)])[1:4])
                              }
                            }, 
                            fill = NA,         
