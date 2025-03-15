@@ -136,8 +136,10 @@ single_factor_analysis <- function(portfolios, quantile){
 # Test Zone ---------------------------------------------------------------
 
 
-# test <- portfolio_sort(data = bond, signal = mom6, ret_col = ret_exc, quantile = 3)
-# abc <- single_factor_analysis(test$portfolios, quantile = 3)
+# yield, amt_out, rating, spread, bond_age, mkt_val, dura
+
+# test <- portfolio_sort(data = bond, signal = yield, ret_col = ret_exc, quantile = 5)
+# abc <- single_factor_analysis(test$portfolios, quantile = 5)
 # View(abc$perf.table)
 # abc$perf.plot
 # abc$return.plot

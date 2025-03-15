@@ -8,16 +8,73 @@ library(zoo)
 
 
 bond <- read_csv("data/bond_returns.csv")
+bond_info <- read_csv("data/bond_info.csv")
 
 
 
 
-# Constructing Signals for Factors
-# Base it on regular excess returns
-# (dur. matched exc. returns better?)
+# Join bond info ----------------------------------------------------------
+
+
+bond_info <- bond_info |> 
+  mutate(
+    eom = DATE,
+    cusip = CUSIP,
+    off_date = OFFERING_DATE,
+    maturity = MATURITY,
+    amt_out = AMOUNT_OUTSTANDING,
+    rating = RATING_NUM,
+    spread = as.numeric(gsub("%", "", T_Spread)) / 100,
+    price = PRICE_EOM,
+    bond_age = as.double(eom - off_date) / as.double(maturity - off_date)
+  ) |> 
+  select(
+    eom, cusip, off_date, maturity, price, amt_out, rating, spread, bond_age
+  )
+
+
+bond <- bond |> left_join(bond_info, by = join_by(eom == eom, cusip == cusip))
+
+bond
 
 
 
+# Basics ------------------------------------------------------------------
+
+start <- Sys.time()
+
+# rating is already done
+
+bond <- bond |> 
+  arrange(cusip, eom) |>   # make sure data is sorted by time within each group
+  group_by(cusip) |>
+  mutate(
+    mkt_val = -market_value,
+    amt_out = -amt_out,
+    dura = -duration,
+    yields = yield
+  )
+
+
+end <- Sys.time()
+
+# Check when signal exists
+# check <- test |>
+#   group_by(eom) |>
+#   summarize(
+#     nobs = n(),
+#     exists = sum(!is.na(str))) |>
+#   ungroup()
+
+
+cat("Finished Basic signals", "\n",
+    "--------------------------------------------------------------------------", "\n",
+    "Chunk took ", difftime(end, start, units = "secs"), " seconds")
+
+
+# Liquidity ---------------------------------------------------------------
+
+# Liquidity signals: bond_age and spread already constructed
 
 # VaR and ES --------------------------------------------------------------
 
@@ -228,7 +285,7 @@ bond <- bond |>
                         if(sum(!is.na(x)) < 2) {
                           NA
                         } else {
-                          prod(1 + x[!is.na(x)]) - 1
+                          mean(x[!is.na(x)])
                         }
                       }, 
                       fill = NA,         
@@ -241,7 +298,7 @@ bond <- bond |>
                         if(sum(!is.na(x)) < 4) {
                           NA
                         } else {
-                          prod(1 + x[!is.na(x)]) - 1
+                          mean(x[!is.na(x)])
                         }
                       }, 
                       fill = NA,         
@@ -254,7 +311,7 @@ bond <- bond |>
                         if(sum(!is.na(x)) < 6) {
                           NA
                         } else {
-                          prod(1 + x[!is.na(x)]) - 1
+                          mean(x[!is.na(x)])
                         }
                       }, 
                       fill = NA,         
@@ -267,7 +324,7 @@ bond <- bond |>
                         if(sum(!is.na(x)) < 9) {
                           NA
                         } else {
-                          prod(1 + x[!is.na(x)]) - 1
+                          mean(x[!is.na(x)])
                         }
                       }, 
                       fill = NA,         
