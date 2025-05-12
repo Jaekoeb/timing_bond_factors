@@ -8,9 +8,13 @@ library(PerformanceAnalytics)
 source("code/builder/portfolio_sort.R")
 
 load("data/bond.RData")
+load("data/market.RData")
 
-market <- read_csv("data/bond_mkt_term.csv", 
-                   col_types = cols(date = col_date(format = "%Y-%m-%d")))
+# market <- read_csv("data/bond_mkt_term.csv",
+#                    col_types = cols(date = col_date(format = "%Y-%m-%d")))
+
+# market <- market |> 
+#   rename(def := market)
 
 factors <- readLines("data/signals.txt")
 
@@ -115,6 +119,17 @@ fact <- all_factors(bond, factors = factors,
                   quantile = 5,
                   ret_col = ret_exc
                   )
+
+
+# Join Market and Term Factor
+fact <- left_join(fact, market |> select(-market), join_by(eom == eom))
+fact <- fact |>
+  rename(
+    date := eom
+  ) |> 
+  select(
+    date, def, term, everything()
+  )
 
 
 save(const, file = "data/constituents.RData")

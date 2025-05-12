@@ -3,51 +3,31 @@
 
 # Libraries and Data ------------------------------------------------------
 
-load("data/constituents.RData")
-load("data/factors.RData")
-factors <- readLines("data/signals.txt")
-
 library(tidyverse)
-library(corrplot)
 library(xts)
 library(PerformanceAnalytics)
 library(sandwich)
 library(scales)
-library(broom)
 library(Farben)
+library(broom)
 
-# Constituents Familiarity ------------------------------------------------
+fact <- read_csv("data/bond_factors.csv", 
+                 col_types = cols(date = col_date(format = "%Y-%m-%d")))
 
-df <- const |> select(-eom, -cusip)
-
-# 1. Compute Kendall's Tau Correlation Matrix
-# Use method = "spearman" for Spearman's Rho
-# Use use = "pairwise.complete.obs" for pairwise deletion of NAs
-cor_matrix <- cor(df, method = "spearman", use = "pairwise.complete.obs")
-
-
-pdf(
-  file = "results/cross_section/correlation.pdf",
-  height = 5,
-  width = 5
+factors <- c(
+  "value", "mkt_val", "amt_out", "dura", "bond_age",
+  "btm", "gspread", "yields", "var5", "vola", "es10",
+  "def_beta", "term_beta", "var10", "skew", "mom3",
+  "mom6", "mom9", "mom12", "mom_equ", "str", "ltr"
 )
 
-# Generate the plot
-corrplot(cor_matrix,
-         method = "color",       # Use color to represent correlation strength
-         order = "hclust",       # Order rows/columns using hierarchical clustering
-         tl.col = "black",       # Color of text labels
-         tl.srt = 45,            # Rotate text labels for better readability
-         tl.cex = 0.7,           # Size of text labels (adjust as needed)
-         col = COL2('RdYlBu'),    # Use a Red-Yellow-Blue color palette (good for correlations)
-         title = "Familiarity between Factors",
-         mar = c(0,0,1,0)        # Adjust plot margins c(bottom, left, top, right)
-)
+colnames(fact) <- c("date", factors)
 
 
-dev.off()
+market <- read_csv("data/bond_mkt_term.csv") |> rename(def := market)
 
-rm(df, cor_matrix)
+fact <- left_join(fact, market, join_by(date == date))
+
 
 
 
@@ -71,7 +51,7 @@ perf <- t(perf)
 colnames(perf) <- c("Ann. Return", "Ann. Volatility", "Worst Drawdown", "Sharpe Ratio")
 
 
-sink("results/cross_section/factor_performance.txt")
+sink("results/cross_section/robustness/factor_performance.txt")
 xtable::xtable(perf,
                caption = "Factor Metrics")
 sink()
@@ -91,14 +71,14 @@ value <- fact |>
 gg <- ggplot(value, aes(x = date, y = value, color = factor, group = factor)) +
   geom_line(linewidth = 1) +
   theme_bw() +
-  scale_color_manual(values = colorRampPalette(rainbow)(23)) +
+  scale_color_manual(values = colorRampPalette(rainbow)(24)) +
   labs(title = "Portfolio Performance Over Time",
        x = "",
        y = "Value",
        color = "Portfolio")  # Label for the legend
 
 ggsave(
-  filename = "results/cross_section/performance_graph.pdf",
+  filename = "results/cross_section/robustness/performance_graph.pdf",
   plot = gg,
   unit = "cm",
   width = 18,
@@ -111,9 +91,6 @@ rm(value, perf, gg)
 
 
 # Excess Returns ----------------------------------------------------------
-
-# assume `fact` is your data.frame, date in col 1 and factors in col 2:24
-factors <- names(fact)[-1]
 
 # Loop over each factor, fit lm(~1), get NW‐CI on intercept
 res_df <- map_dfr(factors, function(f) {
@@ -153,7 +130,7 @@ gg <- ggplot(res_df, aes(x = Factor, y = Estimate)) +
 
 
 ggsave(
-  filename = "results/cross_section/excess_returns.pdf",
+  filename = "results/cross_section/robustness/excess_returns.pdf",
   plot = gg,
   unit = "cm",
   width = 18,
@@ -199,7 +176,7 @@ res_df <- res_df |>
     p_fdr   = p.adjust(p_raw, method = "BH")
   )
 
-sink("results/cross_section/exret_alpha.txt")
+sink("results/cross_section/robustness/exret_alpha.txt")
 xtable::xtable(res_df,
                caption = "Factor Metrics")
 sink()
@@ -223,7 +200,7 @@ gg <- ggplot(res_df, aes(x = Factor, y = Estimate)) +
 
 # 5. Save
 ggsave(
-  filename = "results/cross_section/exret_alphas.pdf",
+  filename = "results/cross_section/robustness/exret_alphas.pdf",
   plot = gg,
   unit = "cm",
   width = 18,
@@ -266,7 +243,7 @@ for (name in factors) {
     ) +
     theme_bw()
   
-  filename <- paste0("results/cross_section/alpha/", name, ".pdf")
+  filename <- paste0("results/cross_section/robustness/alpha/", name, ".pdf")
   
   
   ggsave(
