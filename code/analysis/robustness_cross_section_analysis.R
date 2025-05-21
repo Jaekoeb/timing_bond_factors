@@ -29,6 +29,8 @@ market <- read_csv("data/bond_mkt_term.csv") |> rename(def := market)
 fact <- left_join(fact, market, join_by(date == date))
 
 
+# Compare sample period
+# fact <- fact |> filter(date >= "2002-08-31")
 
 
 # Performance -------------------------------------------------------------

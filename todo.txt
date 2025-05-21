@@ -1,0 +1,2 @@
+- Robustness: Compute results on Shorter timeframe using Dick-Nielsen Data
+- Potentially: Fix BtM, Credit Spread and Yields

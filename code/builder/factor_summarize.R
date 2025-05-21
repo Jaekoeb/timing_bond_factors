@@ -110,13 +110,13 @@ const <- constituents(
   data = bond,
   factors = factors,
   ret_col = ret_exc,
-  quantile = 5
+  quantile = 3
   )
 
 
 fact <- all_factors(bond, factors = factors,
-                  type = "long",
-                  quantile = 5,
+                  type = "ls",
+                  quantile = 3,
                   ret_col = ret_exc
                   )
 
