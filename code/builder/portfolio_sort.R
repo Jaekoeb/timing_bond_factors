@@ -18,6 +18,10 @@ portfolio_sort <- function(data, signal, ret_col, quantile = 3) {
   data <- data |>
     rename(signal = {{ signal }},
            return = {{ ret_col }}) |>
+    group_by(cusip) |> 
+    arrange(eom) |> 
+    mutate(signal = lag(signal)) |>  # lag the signal
+    ungroup() |> 
     filter(!is.na(signal),
            !is.na(return)) |> 
     select(

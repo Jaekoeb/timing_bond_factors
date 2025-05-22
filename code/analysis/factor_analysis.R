@@ -138,16 +138,16 @@ single_factor_analysis <- function(portfolios, quantile){
 
 # yield, amt_out, rating, spread, bond_age, mkt_val, dura
 
-# test <- portfolio_sort(data = bond, signal = yields, ret_col = ret_exc, quantile = 3)
-# abc <- single_factor_analysis(test$portfolios, quantile = 3)
-# View(abc$perf.table)
-# abc$perf.plot
-# abc$return.plot
-# abc$yield.plot
-# abc$duration.plot
-# 
-# 
-# 
-# ggplot(data = df, aes(x = eom, y = yield, color = portfolio)) +
-#   geom_line(size = 1) +
-#   theme_bw()
+test <- portfolio_sort(data = bond, signal = yields, ret_col = ret_exc, quantile = 3)
+abc <- single_factor_analysis(test$portfolios, quantile = 3)
+View(abc$perf.table)
+abc$perf.plot
+abc$return.plot
+abc$yield.plot
+abc$duration.plot
+
+
+
+ggplot(data = df, aes(x = eom, y = yield, color = portfolio)) +
+  geom_line(size = 1) +
+  theme_bw()

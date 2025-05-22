@@ -120,7 +120,7 @@ start <- Sys.time()
 bond <- bond |> 
   arrange(cusip, eom) |>   # make sure data is sorted by time within each group
   group_by(cusip) |> 
-  mutate(var5 = rollapplyr(lag(ret_exc, 1), 
+  mutate(var5 = rollapplyr(ret_exc, 
                            width = 36, 
                            FUN = function(x) {
                              if(sum(!is.na(x)) < 24) {
@@ -132,7 +132,7 @@ bond <- bond |>
                            fill = NA,         
                            align = "right"),
          
-         var10 = rollapplyr(lag(ret_exc, 1), 
+         var10 = rollapplyr(ret_exc, 
                             width = 36, 
                             FUN = function(x) {
                               if(sum(!is.na(x)) < 24) {
@@ -144,7 +144,7 @@ bond <- bond |>
                             fill = NA,         
                             align = "right"),
          
-         es10 = rollapplyr(lag(ret_exc, 1), 
+         es10 = rollapplyr(ret_exc, 
                            width = 36, 
                            FUN = function(x) {
                              if(sum(!is.na(x)) < 24) {
@@ -191,10 +191,10 @@ bond <- bond |>
   mutate(
     
     # Short Term Reversal
-    str = -lag(ret_exc),
+    str = -ret_exc,
     
     # Long Term Reversal
-    ltr = rollapplyr(ret_exc,
+    ltr = -rollapplyr(ret_exc,
                      width = 48,
                      FUN = function(x) {
                        # Select the 36 observations from 48 to 13 months back
@@ -247,7 +247,7 @@ bond <- bond |>
     
     
     # Volatility
-    vola = rollapplyr(lag(ret_exc, 1), 
+    vola = rollapplyr(ret_exc, 
                       width = 36, 
                       FUN = function(x) {
                         if(sum(!is.na(x)) < 24) {
@@ -261,7 +261,7 @@ bond <- bond |>
     
     # Skewness
     # (compute negative skewness, negative signal)
-    skew = rollapplyr(lag(ret_exc, 1), 
+    skew = rollapplyr(ret_exc, 
                       width = 36, 
                       FUN = function(x) {
                         if(sum(!is.na(x)) < 24) {
@@ -275,7 +275,7 @@ bond <- bond |>
     
     
     # Kurtosis
-    kurt = rollapplyr(lag(ret_exc, 1), 
+    kurt = rollapplyr(ret_exc, 
                       width = 36, 
                       FUN = function(x) {
                         if(sum(!is.na(x)) < 24) {
@@ -308,7 +308,7 @@ bond <- bond |>
   group_by(cusip) |>
   mutate(
     
-    mom3 = rollapplyr(lag(ret_exc, 1), 
+    mom3 = rollapplyr(ret_exc, 
                       width = 3, 
                       FUN = function(x) {
                         if(sum(!is.na(x)) < 2) {
@@ -321,7 +321,7 @@ bond <- bond |>
                       align = "right"),
     
     
-    mom6 = rollapplyr(lag(ret_exc, 1), 
+    mom6 = rollapplyr(ret_exc, 
                       width = 6, 
                       FUN = function(x) {
                         if(sum(!is.na(x)) < 4) {
@@ -334,7 +334,7 @@ bond <- bond |>
                       align = "right"),
     
     
-    mom9 = rollapplyr(lag(ret_exc, 1), 
+    mom9 = rollapplyr(ret_exc, 
                       width = 9, 
                       FUN = function(x) {
                         if(sum(!is.na(x)) < 6) {
@@ -347,7 +347,7 @@ bond <- bond |>
                       align = "right"),
     
     
-    mom12 = rollapplyr(lag(ret_exc, 1), 
+    mom12 = rollapplyr(ret_exc, 
                       width = 12, 
                       FUN = function(x) {
                         if(sum(!is.na(x)) < 9) {
@@ -395,32 +395,11 @@ writeLines(
 )
 
 
+
 # Reorder data frame and save
 columns <- c(colnames(bond[1:12]), signals)
 
 bond <- bond |> select(all_of(columns))
 
-file_path <- "data/bond.RData"
-
-# Check if the file exists
-if (file.exists(file_path)) {
-  # Prompt the user for confirmation
-  response <- askYesNo(paste("File", file_path, "already exists. Overwrite?"))
-  
-  # Handle the response
-  if (isTRUE(response)) {
-    # User confirmed, so overwrite the file
-    save(bond, file = file_path)
-    print("File overwritten.")
-  } else {
-    # User declined, so don't overwrite
-    print("File not overwritten.")
-  }
-} else {
-  # File doesn't exist, so save it
-  save(bond, file = file_path)
-  print("File saved.")
-}
-
+save(bond, file = "data/bond.RData")
 cat("Jobs done!")
-
