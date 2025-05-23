@@ -95,6 +95,16 @@ all_factors <- function(data, factors, type = "long", quantile, ret_col) {
   }
   
   
+  # Lag returns for all factors
+  result <- result |> 
+    group_by(factor) |> 
+    arrange(eom) |> 
+    mutate(
+      return = lag(return)
+    ) |> 
+    ungroup()
+  
+  
   return(result)
 }
 
@@ -120,6 +130,7 @@ fact <- all_factors(bond, factors = factors,
                   )
 
 
+# lag returns
 
 # Prepate market dataframe for merging
 market <- market |> 

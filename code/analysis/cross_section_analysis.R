@@ -298,9 +298,7 @@ ggsave(
 
 
 
-rm(response_vars, res_df, gg)
-
-
+rm(response_vars, gg)
 
 
 # Dynamic Alphas ----------------------------------------------------------

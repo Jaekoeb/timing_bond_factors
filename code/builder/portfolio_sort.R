@@ -20,7 +20,7 @@ portfolio_sort <- function(data, signal, ret_col, quantile = 3) {
            return = {{ ret_col }}) |>
     group_by(cusip) |> 
     arrange(eom) |> 
-    mutate(return = lead(return)) |>  # lag the signal
+    mutate(return = lead(return)) |>  # lead the return
     ungroup() |> 
     filter(!is.na(signal),
            !is.na(return)) |> 

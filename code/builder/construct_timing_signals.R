@@ -8,16 +8,45 @@ library(zoo)
 load("data/factors.RData")
 
 
-# Simple Momentum ----------------------------------------------------------------
+
+
+# Helper Columns ----------------------------------------------------------
 
 data <- data |> 
   group_by(factor) |> 
-  arrange(date) |> 
+  arrange(eom) |> 
   mutate(
     
-    mom1 = sign(return),
+    # Compute the 3 year rolling volatility
+    rollvol = rollapplyr(return, 
+                         width = 36, 
+                         FUN = function(x) {
+                           if(sum(!is.na(x)) < 24) {
+                             NA
+                           } else {
+                             sd(x, na.rm = TRUE)
+                           }
+                         }, 
+                         fill = NA,         
+                         align = "right")
+  )
+
+
+# Momentum ----------------------------------------------------------------
+
+data <- data |> 
+  group_by(factor) |> 
+  arrange(eom) |> 
+  mutate(
     
-    mom3 = sign(rollapplyr(return, 
+    # 1 - month 
+    mom1 = sign(return),
+    smom1 = pmax(pmin(return / rollvol, 2), -2),
+    
+    
+    
+    # 3 - month
+    mom3 = rollapplyr(return, 
                width = 3, 
                FUN = function(x) {
                  if(sum(!is.na(x)) < 2) {
@@ -27,9 +56,14 @@ data <- data |>
                  }
                }, 
                fill = NA,         
-               align = "right")),
+               align = "right"),
     
-    mom6 = sign(rollapplyr(return, 
+    smom3 = pmax(pmin(mom3 / rollvol, 2), -2),
+    mom3 = sign(mom3),
+    
+    
+    # 6 - month
+    mom6 = rollapplyr(return, 
                            width = 6, 
                            FUN = function(x) {
                              if(sum(!is.na(x)) < 4) {
@@ -39,9 +73,14 @@ data <- data |>
                              }
                            }, 
                            fill = NA,         
-                           align = "right")),
+                           align = "right"),
     
-    mom12 = sign(rollapplyr(return, 
+    smom6 = pmax(pmin(mom6 / rollvol, 2), -2),
+    mom6 = sign(mom6),
+    
+    
+    # 12 - month
+    mom12 = rollapplyr(return, 
                            width = 12, 
                            FUN = function(x) {
                              if(sum(!is.na(x)) < 9) {
@@ -51,7 +90,10 @@ data <- data |>
                              }
                            }, 
                            fill = NA,         
-                           align = "right"))
+                           align = "right"),
+    
+    smom12 = pmax(pmin(mom12 / rollvol, 2), -2),
+    mom12 = sign(mom12),
     
   ) |> 
   ungroup()
@@ -60,10 +102,18 @@ data <- data |>
 
 
 
-# Scaled Momentum ---------------------------------------------------------
+# Volatility --------------------------------------------------------------
 
 
-
+data <- data |> 
+  group_by(factor) |> 
+  arrange(eom) |> 
+  mutate(
+    
+    vol1 = (rollvol - lag(rollvol)) / lag(rollvol)
+    
+    
+  )
 
 
 
