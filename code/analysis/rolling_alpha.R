@@ -107,7 +107,7 @@ roll_alpha <- function(data,
   
   # Add back dates from data
   result_matrix <- as.data.frame(result_matrix)
-  result_matrix$date <- data$date
+  result_matrix$eom <- data$eom
   
   
   

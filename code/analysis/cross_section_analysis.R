@@ -51,10 +51,76 @@ rm(df, cor_matrix)
 
 
 
+
+# Factor Characteristics --------------------------------------------------
+
+
+# Yield
+gg <- data %>%
+  # Convert 'factor' to a factor type if it isn't already
+  mutate(factor = factor(factor)) %>%
+  # Reorder factors based on median yield (largest to smallest)
+  # We use -yield inside reorder for descending order based on the summary function (default is median)
+  ggplot(aes(x = reorder(factor, yield, FUN = function(x) -median(x)), y = yield)) +
+  geom_boxplot(outliers = FALSE) + # Changed outliers = FALSE to outlier.shape = NA for clarity
+  theme_bw() +
+  # Tilt x-axis labels by 45 degrees and adjust alignment
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) +
+  # Add custom labels
+  labs(
+    title = "Yield Distribution by Factor",
+    x = "Factor Category",
+    y = "Yield (%)"
+  )
+
+
+ggsave(
+  filename = "results/cross_section/yield_distribution.pdf",
+  plot = gg,
+  unit = "cm",
+  width = 20,
+  height = 10
+)
+
+
+
+# Duration
+gg <- data %>%
+  # Convert 'factor' to a factor type if it isn't already
+  mutate(factor = factor(factor)) %>%
+  # Reorder factors based on median yield (largest to smallest)
+  # We use -yield inside reorder for descending order based on the summary function (default is median)
+  ggplot(aes(x = reorder(factor, duration, FUN = function(x) -median(x)), y = duration)) +
+  geom_boxplot(outliers = FALSE) + # Changed outliers = FALSE to outlier.shape = NA for clarity
+  theme_bw() +
+  # Tilt x-axis labels by 45 degrees and adjust alignment
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) +
+  # Add custom labels
+  labs(
+    title = "Duration Distribution by Factor",
+    x = "Factor Category",
+    y = "Duration"
+  )
+
+
+ggsave(
+  filename = "results/cross_section/duration_distribution.pdf",
+  plot = gg,
+  unit = "cm",
+  width = 20,
+  height = 10
+)
+
+# Prepare Return Data Frame -----------------------------------------------
+
+fact <- data |> 
+  select(eom, factor, return) |> 
+  pivot_wider(names_from = factor, values_from = return)
+
 # Performance -------------------------------------------------------------
 
 # Performance Summary
-perf <- xts(fact[, -1], order.by = fact$date)
+perf <- xts(fact[, -1], order.by = fact$eom)
 
 # Basic Performance Analysis
 perf <- rbind(
@@ -79,7 +145,7 @@ sink()
 
 # Performance Plot
 value <- fact |>
-  pivot_longer(!date, names_to = "factor", values_to = "value") |> 
+  pivot_longer(!eom, names_to = "factor", values_to = "value") |> 
   filter(!is.na(value)) |> 
   group_by(factor) |> 
   mutate(
@@ -88,10 +154,10 @@ value <- fact |>
   ungroup()
 
 
-gg <- ggplot(value, aes(x = date, y = value, color = factor, group = factor)) +
+gg <- ggplot(value, aes(x = eom, y = value, color = factor, group = factor)) +
   geom_line(linewidth = 1) +
   theme_bw() +
-  scale_color_manual(values = colorRampPalette(rainbow)(23)) +
+  scale_color_manual(values = colorRampPalette(rainbow)(24)) +
   labs(title = "Portfolio Performance Over Time",
        x = "",
        y = "Value",
@@ -169,7 +235,7 @@ rm(gg, res_df)
 # Alphas (Multiple Testing) ------------------------------------------------------------------
 
 # 1. define which columns are your dependent vars (exclude date, def, term)
-response_vars <- setdiff(names(fact)[-1], c("def", "term"))
+response_vars <- setdiff(names(fact)[-1], c("def", "term", "market"))
 
 # 2. loop, fit y ~ def + term, extract alpha & CIs
 res_df <- map_dfr(response_vars, function(f) {
@@ -251,7 +317,7 @@ for (name in factors) {
     response_col_name = name,
     window_size = 30
   ) |> 
-    ggplot(aes(x = date)) +
+    ggplot(aes(x = eom)) +
     # Add the confidence interval ribbon first (behind the line)
     geom_ribbon(aes(ymin = low_ci, ymax = high_ci),
                 fill = "grey", alpha = 0.5) + # Adjust color and transparency

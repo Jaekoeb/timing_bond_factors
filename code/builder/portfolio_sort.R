@@ -20,7 +20,7 @@ portfolio_sort <- function(data, signal, ret_col, quantile = 3) {
            return = {{ ret_col }}) |>
     group_by(cusip) |> 
     arrange(eom) |> 
-    mutate(signal = lag(signal)) |>  # lag the signal
+    mutate(return = lead(return)) |>  # lag the signal
     ungroup() |> 
     filter(!is.na(signal),
            !is.na(return)) |> 
@@ -50,6 +50,7 @@ portfolio_sort <- function(data, signal, ret_col, quantile = 3) {
     group_by(eom, rating_group, portfolio) |> 
     summarise(
       return = weighted.mean(return, market_value),
+      signal = weighted.mean(signal, market_value, na.rm = TRUE),
       yield = weighted.mean(yield, market_value, na.rm = TRUE),
       duration = weighted.mean(duration, market_value, na.rm = TRUE),
       market_value = mean(market_value),
@@ -61,6 +62,7 @@ portfolio_sort <- function(data, signal, ret_col, quantile = 3) {
     group_by(eom, portfolio) |> 
     summarise(
       return = mean(return),
+      signal = mean(signal),
       market_value = mean(market_value),
       yield = mean(yield),
       duration = mean(duration),
@@ -80,13 +82,15 @@ portfolio_sort <- function(data, signal, ret_col, quantile = 3) {
       portfolio = "ls",
       return = return.y - return.x,
       market_value = (market_value.x + market_value.y) / 2,
-      yield = (yield.x + yield.y) / 2,
-      duration = duration.y - duration.x
+      yield = yield.y - yield.x,
+      duration = duration.y - duration.x,
+      signal = signal.y - signal.x
     ) |> 
     select(
       eom,
       portfolio,
       return,
+      signal,
       market_value,
       yield,
       duration

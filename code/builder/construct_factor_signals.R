@@ -39,35 +39,36 @@ bond <- bond |> left_join(bond_info, by = join_by(eom == eom, cusip == cusip))
 
 
 
-
-
 # Join Treasury Info ------------------------------------------------------
 
 treasury_yld <- treasury_yld |> 
   mutate(
     eom = as.Date(MCALDT),
     duration = TMDURATN / 365,
-    tyield = TMYLD * 365
+    tyield = TMYLD * 365,
+    id = format(eom, "%Y-%m")
   ) |> 
   select(
-    eom, duration, tyield
+    eom, id, duration, tyield
   )
+
+
+bond <- bond |> mutate(id = format(eom, "%Y-%m"))
 
 
 bond <- setDT(bond)
 treasury_yld <- setDT(treasury_yld |> na.omit())
 
 # Set keys for both tables
-setkey(bond, eom, duration)
-setkey(treasury_yld, eom, duration)
+setkey(bond, id, duration)
+setkey(treasury_yld, id, duration)
 
 
 # Perform the rolling join: for each row in df1, find the closest matching duration in df2
 # The join below adds columns from df2 (e.g., yield) to df1 based on eom and the nearest duration.
 bond <- treasury_yld[bond, roll = "nearest"]
 
-bond <- as.data.frame(bond)
-
+bond <- as.data.frame(bond) |> select(-id, -i.eom)
 
 # Basics ------------------------------------------------------------------
 

@@ -6,7 +6,7 @@
 
 load("data/factors.RData")
 
-fact <- fact |> pivot_longer(!date, names_to = "factor", values_to = "pertl")
+fact <- data |> select(eom, factor, return)
 
 
 
@@ -25,8 +25,13 @@ colnames(stol) <- c("date", factors)
 stol <- stol |> pivot_longer(!date, names_to = "factor", values_to = "stol")
 
 
-data <- left_join(fact, stol, join_by(date == date, factor == factor))
+# Compute ID to merge
+stol <- stol |> mutate(id = format(date, "%Y-%m"))
+fact <- fact |> mutate(id = format(eom, "%Y-%m"))
 
+
+data <- left_join(fact, stol |> select(id, factor, stol), join_by(id == id, factor == factor))
+data <- data |> select(-id) |> rename(pertl = return)
 
 rm(fact, stol, factors)
 
@@ -36,17 +41,9 @@ data <- data |> filter(!is.na(pertl))
 # Analysis ----------------------------------------------------------------
 
 
-data |> group_by(factor) |> 
-  summarise(
-    corr <- cor(pertl, stol, use = "pairwise.complete")
-  ) |> 
-  print(n = 23)
-
-
-
 data <-  data |> 
   group_by(factor) |> 
-  arrange(date) |> 
+  arrange(eom) |> 
   mutate(
     pertl = 100 * cumprod(1 + pertl) / first(1+pertl),
     stol = 100 * cumprod(1 + stol) / first(1+stol)
@@ -63,7 +60,7 @@ for (fact in unique_factors) {
   df_subset <- subset(data, factor == fact)
   
   # Create the line plot using ggplot2
-  plot <- ggplot(df_subset, aes(x = date)) +
+  plot <- ggplot(df_subset, aes(x = eom)) +
     geom_line(aes(y = pertl, color = "pertl")) +
     geom_line(aes(y = stol, color = "stol")) +
     scale_color_manual(values = c("pertl" = "blue", "stol" = "red")) + # Customize colors if needed

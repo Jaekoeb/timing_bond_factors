@@ -7,14 +7,10 @@ library(tidyverse)
 library(zoo)
 load("data/factors.RData")
 
-# pivot data longer
-fact <- fact |> pivot_longer(!date, names_to = "factor", values_to = "return")
-
-
 
 # Simple Momentum ----------------------------------------------------------------
 
-fact <- fact |> 
+data <- data |> 
   group_by(factor) |> 
   arrange(date) |> 
   mutate(
@@ -59,6 +55,16 @@ fact <- fact |>
     
   ) |> 
   ungroup()
+
+
+
+
+
+# Scaled Momentum ---------------------------------------------------------
+
+
+
+
 
 
 

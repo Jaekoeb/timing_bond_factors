@@ -58,8 +58,8 @@ constituents <- function(data, factors, ret_col, quantile = 3){
 
 all_factors <- function(data, factors, type = "long", quantile, ret_col) {
   
-  # initiate list
-  result <- list()
+  # initiate data frame
+  result <- data.frame()
   
   for (k in seq_along(factors)) {
     
@@ -80,21 +80,20 @@ all_factors <- function(data, factors, type = "long", quantile, ret_col) {
     
     # keep only return and rename
     df <- df |> 
-      select(eom, return) |> 
-      rename(
-        !!rlang::sym(factors[k]) := return
-      )
+      mutate(
+        factor = factors[k]
+      ) |>
+      select(eom, factor, everything()) |> 
+      select(-portfolio)
     
     
     # Save dataframe to result list
-    result[[k]] <- df
+    result <- rbind(result, df)
     
     cat("Finished factor", factors[k], "\n")
     
   }
   
-  # Merge all dataframes in list
-  result <- Reduce(function(x, y) merge(x, y, by = "eom", all = TRUE), result)
   
   return(result)
 }
@@ -110,27 +109,31 @@ const <- constituents(
   data = bond,
   factors = factors,
   ret_col = ret_exc,
-  quantile = 3
+  quantile = 5
   )
 
 
 fact <- all_factors(bond, factors = factors,
                   type = "ls",
-                  quantile = 3,
+                  quantile = 5,
                   ret_col = ret_exc
                   )
 
 
-# Join Market and Term Factor
-fact <- left_join(fact, market |> select(-market), join_by(eom == eom))
-fact <- fact |>
-  rename(
-    date := eom
-  ) |> 
+
+# Prepate market dataframe for merging
+market <- market |> 
+  mutate(signal = NA) |> 
+  rename(market_value = value) |> 
   select(
-    date, def, term, everything()
+    eom, factor, return, signal, market_value, yield, duration
   )
 
 
+# Join Market and Term Factor
+data <- rbind(fact, market) |> 
+  arrange(eom, factor)
+
+
 save(const, file = "data/constituents.RData")
-save(fact, file = "data/factors.RData")
+save(data, file = "data/factors.RData")

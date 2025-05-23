@@ -90,6 +90,16 @@ single_factor_analysis <- function(portfolios, quantile){
          color = "Portfolio")  # Legend label
   
   
+  # Signal Plot
+  signal.plot <- ggplot(portfolios, aes(x = portfolio, y = signal, fill = portfolio)) +
+    geom_boxplot(outlier.shape = 3, outlier.size = 1, alpha = 0.9) +  # Boxplot with visible outliers
+    scale_fill_manual(values = colors) +
+    theme_bw() +  # Clean theme
+    theme(legend.position = "none") +  # Remove legend
+    labs(title = "Signal Distribution Across Portfolios",
+         x = "Portfolio",
+         y = "Signal")
+  
   
   # Yield Plot
   yield.plot <- ggplot(portfolios, aes(x = portfolio, y = yield, fill = portfolio)) +
@@ -119,6 +129,7 @@ single_factor_analysis <- function(portfolios, quantile){
     perf.table = perf.table,
     perf.plot = perf.plot,
     return.plot = return.plot,
+    signal.plot = signal.plot,
     yield.plot = yield.plot,
     duration.plot = duration.plot
   ))
@@ -137,17 +148,11 @@ single_factor_analysis <- function(portfolios, quantile){
 
 
 # yield, amt_out, rating, spread, bond_age, mkt_val, dura
-
-test <- portfolio_sort(data = bond, signal = yields, ret_col = ret_exc, quantile = 3)
-abc <- single_factor_analysis(test$portfolios, quantile = 3)
-View(abc$perf.table)
-abc$perf.plot
-abc$return.plot
-abc$yield.plot
-abc$duration.plot
-
-
-
-ggplot(data = df, aes(x = eom, y = yield, color = portfolio)) +
-  geom_line(size = 1) +
-  theme_bw()
+# test <- portfolio_sort(data = bond, signal = mom3, ret_col = ret_exc, quantile = 3)
+# abc <- single_factor_analysis(test$portfolios, quantile = 3)
+# View(abc$perf.table)
+# abc$perf.plot
+# abc$return.plot
+# abc$signal.plot
+# abc$yield.plot
+# abc$duration.plot
