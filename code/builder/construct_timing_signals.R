@@ -319,4 +319,4 @@ data <- data |> select(-rollvol)
 
 
 # Save the data frame
-save(date, file = "data/timing.RData")
+save(data, file = "data/timing.RData")
