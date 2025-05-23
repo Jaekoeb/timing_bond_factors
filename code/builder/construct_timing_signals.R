@@ -58,7 +58,7 @@ data <- data |>
                fill = NA,         
                align = "right"),
     
-    smom3 = pmax(pmin(mom3 / rollvol, 2), -2),
+    smom3 = pmax(pmin(sqrt(12) * mom3 / rollvol, 2), -2),
     mom3 = sign(mom3),
     
     
@@ -75,7 +75,7 @@ data <- data |>
                            fill = NA,         
                            align = "right"),
     
-    smom6 = pmax(pmin(mom6 / rollvol, 2), -2),
+    smom6 = pmax(pmin(sqrt(12) * mom6 / rollvol, 2), -2),
     mom6 = sign(mom6),
     
     
@@ -92,7 +92,7 @@ data <- data |>
                            fill = NA,         
                            align = "right"),
     
-    smom12 = pmax(pmin(mom12 / rollvol, 2), -2),
+    smom12 = pmax(pmin(sqrt(12) * mom12 / rollvol, 2), -2),
     mom12 = sign(mom12),
     
   ) |> 
@@ -110,8 +110,60 @@ data <- data |>
   arrange(eom) |> 
   mutate(
     
-    vol1 = (rollvol - lag(rollvol)) / lag(rollvol)
+    # 12 - month
+    vol1 = rollapplyr(rollvol, 
+                      width = 12, 
+                      FUN = function(x) {
+                        if(sum(!is.na(x)) < 9) {
+                          NA
+                        } else {
+                          mean(x[!is.na(x)]) / x[12]
+                        }
+                      }, 
+                      fill = NA,         
+                      align = "right"),
     
+    # 6 - month
+    vol2 = rollapplyr(rollvol, 
+                      width = 6, 
+                      FUN = function(x) {
+                        if(sum(!is.na(x)) < 4) {
+                          NA
+                        } else {
+                          mean(x[!is.na(x)]) / x[6]
+                        }
+                      }, 
+                      fill = NA,         
+                      align = "right"),
+    
+    
+    # 3 - month
+    vol3 = rollapplyr(rollvol, 
+                      width = 3, 
+                      FUN = function(x) {
+                        if(sum(!is.na(x)) < 2) {
+                          NA
+                        } else {
+                          mean(x[!is.na(x)]) / x[3]
+                        }
+                      }, 
+                      fill = NA,         
+                      align = "right"),
+    
+    
+    # Absolute 12 month vola difference
+    vol4 = rollapplyr(rollvol, 
+                      width = 12, 
+                      FUN = function(x) {
+                        if(sum(!is.na(x)) < 9) {
+                          NA
+                        } else {
+                          mean(x[!is.na(x)]) - x[12]
+                        }
+                      }, 
+                      fill = NA,         
+                      align = "right"),
+    vol4 = sign(vol4)
     
   )
 
@@ -121,47 +173,150 @@ data <- data |>
 
 
 
+# Reversal ----------------------------------------------------------------
 
 
 
-
-
-# Test Zone ---------------------------------------------------------------
-
-
-
-df <- fact
-
-df <- df |> 
+data <- data |> 
   group_by(factor) |> 
-  arrange(date) |> 
+  arrange(eom) |>
   mutate(
-    mom1 = return * lag(mom1),
-    mom3 = return * lag(mom3),
-    mom6 = return * lag(mom6),
-    mom12 = return * lag(mom12)
-  ) |> 
-  na.omit() |> 
+    
+    
+    # 3 - month
+    rev1 = rollapplyr(return, 
+                      width = 3, 
+                      FUN = function(x) {
+                        if(sum(!is.na(x)) < 2) {
+                          NA
+                        } else {
+                          mean(x[!is.na(x)])
+                        }
+                      }, 
+                      fill = NA,         
+                      align = "right"),
+    rev1 = 1 - rev1 * 12,
+    
+    # 6 - month
+    rev2 = rollapplyr(return, 
+                      width = 6, 
+                      FUN = function(x) {
+                        if(sum(!is.na(x)) < 4) {
+                          NA
+                        } else {
+                          mean(x[!is.na(x)])
+                        }
+                      }, 
+                      fill = NA,         
+                      align = "right"),
+    rev2 = 1 - rev2 * 12,
+    
+    # 12 - month
+    rev3 = rollapplyr(return, 
+                      width = 12, 
+                      FUN = function(x) {
+                        if(sum(!is.na(x)) < 9) {
+                          NA
+                        } else {
+                          mean(x[!is.na(x)])
+                        }
+                      }, 
+                      fill = NA,         
+                      align = "right"),
+    rev3 = 1 - rev3 * 12
+    
+    
+    
+  )
+
+
+
+
+
+# Characteristics Spread --------------------------------------------------
+
+
+data <- data |> 
+  group_by(factor) |> 
+  arrange(eom) |>
   mutate(
-    untimed = 100 * cumprod(1 + return) / first(1 + return),
-    mom1 = 100 * cumprod(1 + mom1) / first(1 + mom1),
-    mom3 = 100 * cumprod(1 + mom3) / first(1 + mom3),
-    mom6 = 100 * cumprod(1 + mom6) / first(1 + mom6),
-    mom12 = 100 * cumprod(1 + mom12) / first(1 + mom12)
-  ) |> 
-  ungroup()
+    
+    # 12 - month
+    char1 = rollapplyr(return, 
+                       width = 12, 
+                       FUN = function(x) {
+                         if(sum(!is.na(x)) < 9) {
+                           NA
+                         } else {
+                           (x[12] - mean(x[!is.na(x)])) / sd(x, na.rm = TRUE)
+                         }
+                       }, 
+                       fill = NA,         
+                       align = "right"),
+    
+    # 6 - month
+    char2 = rollapplyr(return, 
+                       width = 6, 
+                       FUN = function(x) {
+                         if(sum(!is.na(x)) < 4) {
+                           NA
+                         } else {
+                           (x[6] - mean(x[!is.na(x)])) / sd(x, na.rm = TRUE)
+                         }
+                       }, 
+                       fill = NA,         
+                       align = "right"),
+    
+    # 3 - month
+    char3 = rollapplyr(return, 
+                       width = 3, 
+                       FUN = function(x) {
+                         if(sum(!is.na(x)) < 2) {
+                           NA
+                         } else {
+                           (x[3] - mean(x[!is.na(x)])) / sd(x, na.rm = TRUE)
+                         }
+                       }, 
+                       fill = NA,         
+                       align = "right")
+  )
 
 
 
 
-name = "gspread"
 
-df |>
-  filter(factor == name) |>
-  select(-return, -factor) |> 
-  pivot_longer(!date, names_to = "strategy") |> 
-  ggplot(aes(x = date, y = value, group = strategy, color = strategy)) +
-  geom_line(size = 1) +
-  theme_bw()
+# Averaging ---------------------------------------------------------------
 
-test <- fact |> filter(factor == "gspread")
+
+data <- data |> 
+  group_by(factor) |> 
+  arrange(eom) |>
+  mutate(
+    
+    # Aggregate Momentum Signals
+    mom = rowMeans(pick(mom1, mom3, mom6, mom12, smom1, smom3, smom6, smom12)),
+    
+    # Aggregate Volatility Signals
+    vol = rowMeans(pick(vol1, vol2, vol3, vol4)),
+    
+    # Aggregate Reversal Signals
+    rev = rowMeans(pick(rev1, rev2, rev3)),
+    
+    # Aggregate Characteristics Spread Signals
+    char = rowMeans(pick(char1, char2, char3)),
+    
+    # Aggregate All Signals
+    all = rowMeans(pick(mom, vol, rev, char))
+  )
+
+
+
+# Save --------------------------------------------------------------------
+
+
+# Remove the rolling volatility
+data <- data |> select(-rollvol)
+
+
+# Save the data frame
+save(date, file = "data/timing.RData")
