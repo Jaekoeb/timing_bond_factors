@@ -294,29 +294,77 @@ data <- data |>
   mutate(
     
     # Aggregate Momentum Signals
-    mom = rowMeans(pick(mom1, mom3, mom6, mom12, smom1, smom3, smom6, smom12)),
+    mom = rowMeans(pick(mom1, mom3, mom6, mom12, smom1, smom3, smom6, smom12), na.rm = TRUE),
     
     # Aggregate Volatility Signals
-    vol = rowMeans(pick(vol1, vol2, vol3, vol4)),
+    vol = rowMeans(pick(vol1, vol2, vol3, vol4), na.rm = TRUE),
     
     # Aggregate Reversal Signals
-    rev = rowMeans(pick(rev1, rev2, rev3)),
+    rev = rowMeans(pick(rev1, rev2, rev3), na.rm = TRUE),
     
     # Aggregate Characteristics Spread Signals
-    char = rowMeans(pick(char1, char2, char3)),
+    char = rowMeans(pick(char1, char2, char3), na.rm = TRUE),
     
     # Aggregate All Signals
-    all = rowMeans(pick(mom, vol, rev, char))
+    all = rowMeans(pick(mom, vol, rev, char), na.rm = TRUE)
   )
 
+
+
+
+
+# Shape -------------------------------------------------------------------
+
+
+# Pivot the data frame longer
+long <- data |>
+  select(-return, -signal, -market_value, -yield, -duration, -rollvol) |> 
+  pivot_longer(cols = !c(eom, factor), names_to = "signal", values_to = "weight")
+
+
+# Join back the returns
+long <- left_join(
+  long,
+  data |> select(eom, factor, return),
+  join_by(eom == eom , factor == factor)
+)
+
+
+# Lag the signals
+long <- long |> 
+  group_by(factor, signal) |> 
+  arrange(eom) |> 
+  mutate(
+    weight = lag(weight)
+  ) |> 
+  ungroup()
+
+
+# Compute the return
+long <- long |>
+  mutate(
+    return = return * weight,
+    uret = return / weight
+  )
+
+
+# Categorize the signals
+long <- long |> 
+  mutate(
+    category = case_when(
+      signal %in% c("mom1", "smom1", "mom3", "smom3", "mom6", "smom6", "mom12", "smom12", "mom") ~ "momentum",
+      signal %in% c("vol1", "vol2", "vol3", "vol4", "vol") ~ "volatility",
+      signal %in% c("rev1", "rev2", "rev3", "rev") ~ "reversal",
+      signal %in% c("char1", "char2", "char3", "char") ~ "char_spread",
+      signal == "all" ~ "all"
+    )
+  )
 
 
 # Save --------------------------------------------------------------------
 
 
-# Remove the rolling volatility
-data <- data |> select(-rollvol)
-
+data <- long
 
 # Save the data frame
 save(data, file = "data/timing.RData")
