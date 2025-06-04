@@ -37,6 +37,11 @@ data <- data |>
 # Macro -------------------------------------------------------------------
 
 
+# Parameters
+window_size <- 12
+mu <- 0.5
+scale <- 10
+
 # change macro data set to monthly observations
 macro <- macro |> 
   mutate(
@@ -60,17 +65,24 @@ data <- data |>
 
 
 get_beta <- function(df, y_col, x_col) {
-  if (nrow(df) < 2) return(NA_real_)  # Not enough data for regression
+  n <- nrow(df)
+  if (n < 2) return(NA_real_)
   
-  formula <- as.formula(paste(y_col, "~", x_col))
-  model <- lm(formula, data = df)
+  y <- df[[y_col]]
+  x <- df[[x_col]]
   
-  coef <- coef(model)
-  return(coef[x_col])
+  # Lag x by one: align x[1:(n-1)] with y[2:n]
+  y_lagged <- y[2:n]
+  x_lagged <- x[1:(n-1)]
+  
+  # Drop NAs (in either y or lagged x)
+  keep <- !is.na(y_lagged) & !is.na(x_lagged)
+  if (sum(keep) < 2) return(NA_real_)
+  
+  model <- lm(y_lagged[keep] ~ x_lagged[keep])
+  coef(model)[["x_lagged[keep]"]]
 }
 
-
-window_size <- 12
 
 # Apply rolling regression by group
 data <- data |> 
@@ -84,7 +96,7 @@ data <- data |>
       .before = window_size - 1,
       .complete = TRUE),
     
-    cpi = cpi * beta * 10,
+    cpi = cpi * beta * scale + mu,
     
     # Economic Growth
     beta = slide_dbl(
@@ -93,7 +105,7 @@ data <- data |>
       .before = window_size - 1,
       .complete = TRUE),
     
-    gdp = gdp * beta * 10,
+    gdp = gdp * beta * scale + mu,
     
     
     # Federal Funds Rate
@@ -103,16 +115,7 @@ data <- data |>
       .before = window_size - 1,
       .complete = TRUE),
     
-    fed = fed * beta * 10,
-    
-    # Long Term Yields
-    beta = slide_dbl(
-      .x = cur_data(),
-      .f = ~ get_beta(.x, y_col = "return", x_col = "teny"),
-      .before = window_size - 1,
-      .complete = TRUE),
-    
-    teny = teny * beta * 10,
+    fed = fed * beta * scale + mu,
     
     
     # Implied Volatility Index
@@ -122,19 +125,29 @@ data <- data |>
       .before = window_size - 1,
       .complete = TRUE),
     
-    vix = vix * beta * 10,
+    vix = vix * beta * scale + mu,
     
-    # Implied Volatility Bond Index
+    # Implied Volatility Index (Bond)
     beta = slide_dbl(
       .x = cur_data(),
       .f = ~ get_beta(.x, y_col = "return", x_col = "tvix"),
       .before = window_size - 1,
       .complete = TRUE),
     
-    tvix = tvix * beta * 10
+    tvix = tvix * beta * scale + mu,
+    
+    # Yield Curve Slope
+    beta = slide_dbl(
+      .x = cur_data(),
+      .f = ~ get_beta(.x, y_col = "return", x_col = "slope"),
+      .before = window_size - 1,
+      .complete = TRUE),
+    
+    slope = slope * beta * scale + mu
     
   ) |> 
-  ungroup()
+  ungroup() |> 
+  select(-beta)
 
 
 
@@ -374,6 +387,10 @@ data <- data |>
 
 
 
+# PLS ---------------------------------------------------------------------
+
+
+
 
 # Averaging ---------------------------------------------------------------
 
@@ -382,6 +399,9 @@ data <- data |>
   group_by(factor) |> 
   arrange(eom) |>
   mutate(
+    
+    # Aggregate Macro Signals
+    macro = rowMeans(pick(cpi, gdp, fed, vix, slope, tvix)),
     
     # Aggregate Momentum Signals
     mom = rowMeans(pick(mom1, mom3, mom6, mom12, smom1, smom3, smom6, smom12), na.rm = TRUE),
@@ -396,7 +416,7 @@ data <- data |>
     char = rowMeans(pick(char1, char2, char3), na.rm = TRUE),
     
     # Aggregate All Signals
-    all = rowMeans(pick(mom, vol, rev, char), na.rm = TRUE)
+    all = rowMeans(pick(macro, mom, vol, rev, char), na.rm = TRUE)
   )
 
 
@@ -446,7 +466,7 @@ long <- long |>
       signal %in% c("vol1", "vol2", "vol3", "vol4", "vol") ~ "volatility",
       signal %in% c("rev1", "rev2", "rev3", "rev") ~ "reversal",
       signal %in% c("char1", "char2", "char3", "char") ~ "char_spread",
-      signal %in% c("pls12", "pls24", "pls36") ~ "PLS",
+      signal %in% c("cpi", "gdp", "fed", "vix", "tvix", "slope", "macro") ~ "macro",
       signal == "all" ~ "all"
     )
   )
