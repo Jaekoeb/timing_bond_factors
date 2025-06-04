@@ -160,12 +160,115 @@ rm(gg, summary_df)
 
 
 
+sharpe <- data |> 
+  group_by(factor, signal) |> 
+  summarise(
+    sharpe = 12 * mean(return, na.rm = TRUE) / sd(return, na.rm = TRUE),
+    usharpe = 12 * mean(uret, na.rm = TRUE) / sd(uret, na.rm = TRUE),
+    diff = sharpe - usharpe,
+    category = first(category),
+    .groups = "drop"
+  )
+
+
+df_summary <- sharpe |> 
+  group_by(signal) |> 
+  summarise(
+    sharpe = mean(sharpe),
+    usharpe = mean(usharpe),
+    diff = mean(diff),
+    category = first(category)
+  )
 
 
 
+gg <- ggplot(data = df_summary,
+       aes(x = reorder(signal, -diff), y = diff, group = category, color = category, fill = category)) +
+  geom_col(color = "black") + # Add black outline and use fill for color
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + # Tilt x-axis labels
+  labs(
+    x = "Signal",
+    y = "Difference",
+    color = "Category",
+    fill = "Category",
+    title = "Summary of Differences by Signal and Category" # Example title
+  )
 
 
+# Save plot
+ggsave(
+  plot = gg,
+  file = "results/timing/sharpe.pdf",
+  units = "cm",
+  width = 20,
+  height = 12
+)
 
+
+# 1) Compute a wide matrix
+mat <- sharpe %>%
+  select(factor, signal, diff) |> 
+  pivot_wider(
+    names_from  = signal,
+    values_from = diff,
+    values_fill = 0
+  ) %>%
+  column_to_rownames("factor") %>%
+  as.matrix()
+
+# 2) Hierarchical clustering
+#  – on rows (factors)
+row_hc <- hclust(dist(mat), method = "ward.D2")
+row_ord <- row_hc$labels[row_hc$order]
+#  – on columns (signals)
+col_hc <- hclust(dist(t(mat)), method = "ward.D2")
+col_ord <- col_hc$labels[col_hc$order]
+
+# 3) Pivot back into long format, but with ordered factor levels
+df_long <- mat %>%
+  as.data.frame() %>%
+  rownames_to_column("factor") %>%
+  pivot_longer(
+    -factor,
+    names_to  = "signal",
+    values_to = "alpha"
+  ) %>%
+  mutate(
+    factor = factor(factor, levels = row_ord),
+    signal = factor(signal, levels = col_ord)
+  )
+
+# 4) Plot with ggplot2
+gg <- ggplot(df_long, aes(x = signal, y = factor, fill = alpha)) +
+  geom_tile(color = "white", size = 0.3) +
+  # diverging palette centered at zero
+  scale_fill_gradient2(
+    low    = "darkred",
+    mid    = "grey80",
+    high   = "darkgreen",
+    midpoint = 0,
+    name   = "SR"
+  ) +
+  labs(
+    x = NULL, y = NULL,
+    title = "Clustered Heatmap of Factor × Signal Sharpe Ratio"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid  = element_blank()
+  )
+
+
+# Save plot
+ggsave(
+  plot = gg,
+  file = "results/timing/sharpe_heatmap.pdf",
+  units = "cm",
+  width = 20,
+  height = 12
+)
 
 
 
@@ -293,73 +396,4 @@ ggsave(
 
 
 rm(gg, summary_df, df)
-
-
-# Alpha Heat Map ----------------------------------------------------------
-
-
-# 1) Compute a wide matrix
-mat <- alpha %>%
-  select(factor, signal, alpha) |> 
-  mutate(alpha = 100 * alpha) |> 
-  pivot_wider(
-    names_from  = signal,
-    values_from = alpha,
-    values_fill = 0
-  ) %>%
-  column_to_rownames("factor") %>%
-  as.matrix()
-
-# 2) Hierarchical clustering
-#  – on rows (factors)
-row_hc <- hclust(dist(mat), method = "ward.D2")
-row_ord <- row_hc$labels[row_hc$order]
-#  – on columns (signals)
-col_hc <- hclust(dist(t(mat)), method = "ward.D2")
-col_ord <- col_hc$labels[col_hc$order]
-
-# 3) Pivot back into long format, but with ordered factor levels
-df_long <- mat %>%
-  as.data.frame() %>%
-  rownames_to_column("factor") %>%
-  pivot_longer(
-    -factor,
-    names_to  = "signal",
-    values_to = "alpha"
-  ) %>%
-  mutate(
-    factor = factor(factor, levels = row_ord),
-    signal = factor(signal, levels = col_ord)
-  )
-
-# 4) Plot with ggplot2
-gg <- ggplot(df_long, aes(x = signal, y = factor, fill = alpha)) +
-  geom_tile(color = "white", size = 0.3) +
-  # diverging palette centered at zero
-  scale_fill_gradient2(
-    low    = "darkred",
-    mid    = "grey80",
-    high   = "darkgreen",
-    midpoint = 0,
-    name   = expression(alpha)
-  ) +
-  labs(
-    x = NULL, y = NULL,
-    title = "Clustered Heatmap of Factor × Signal α"
-  ) +
-  theme_minimal(base_size = 12) +
-  theme(
-    axis.text.x = element_text(angle = 45, hjust = 1),
-    panel.grid  = element_blank()
-  )
-
-
-# Save plot
-ggsave(
-  plot = gg,
-  file = "results/timing/alpha_heatmap.pdf",
-  units = "cm",
-  width = 20,
-  height = 12
-)
 

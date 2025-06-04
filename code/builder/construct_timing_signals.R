@@ -5,9 +5,9 @@
 
 library(tidyverse)
 library(zoo)
+library(slider)
 load("data/factors.RData")
-
-
+load("data/macro.RData")
 
 
 # Helper Columns ----------------------------------------------------------
@@ -30,6 +30,112 @@ data <- data |>
                          fill = NA,         
                          align = "right")
   )
+
+
+
+
+# Macro -------------------------------------------------------------------
+
+
+# change macro data set to monthly observations
+macro <- macro |> 
+  mutate(
+    id = format(date, "%Y-%m")
+  ) |> 
+  arrange(date) |> 
+  group_by(id) |> 
+  slice_tail(n=1) |> 
+  ungroup() |> 
+  select(-date)
+
+
+# merge the two
+data <- data |> 
+  mutate(
+    id = format(eom, "%Y-%m")
+  ) |> 
+  left_join(macro, join_by(id == id)) |> 
+  select(-id)
+
+
+
+get_beta <- function(df, y_col, x_col) {
+  if (nrow(df) < 2) return(NA_real_)  # Not enough data for regression
+  
+  formula <- as.formula(paste(y_col, "~", x_col))
+  model <- lm(formula, data = df)
+  
+  coef <- coef(model)
+  return(coef[x_col])
+}
+
+
+window_size <- 12
+
+# Apply rolling regression by group
+data <- data |> 
+  group_by(factor) |> 
+  mutate(
+    
+    # Inflation
+    beta = slide_dbl(
+      .x = cur_data(),
+      .f = ~ get_beta(.x, y_col = "return", x_col = "cpi"),
+      .before = window_size - 1,
+      .complete = TRUE),
+    
+    cpi = cpi * beta * 10,
+    
+    # Economic Growth
+    beta = slide_dbl(
+      .x = cur_data(),
+      .f = ~ get_beta(.x, y_col = "return", x_col = "gdp"),
+      .before = window_size - 1,
+      .complete = TRUE),
+    
+    gdp = gdp * beta * 10,
+    
+    
+    # Federal Funds Rate
+    beta = slide_dbl(
+      .x = cur_data(),
+      .f = ~ get_beta(.x, y_col = "return", x_col = "fed"),
+      .before = window_size - 1,
+      .complete = TRUE),
+    
+    fed = fed * beta * 10,
+    
+    # Long Term Yields
+    beta = slide_dbl(
+      .x = cur_data(),
+      .f = ~ get_beta(.x, y_col = "return", x_col = "teny"),
+      .before = window_size - 1,
+      .complete = TRUE),
+    
+    teny = teny * beta * 10,
+    
+    
+    # Implied Volatility Index
+    beta = slide_dbl(
+      .x = cur_data(),
+      .f = ~ get_beta(.x, y_col = "return", x_col = "vix"),
+      .before = window_size - 1,
+      .complete = TRUE),
+    
+    vix = vix * beta * 10,
+    
+    # Implied Volatility Bond Index
+    beta = slide_dbl(
+      .x = cur_data(),
+      .f = ~ get_beta(.x, y_col = "return", x_col = "tvix"),
+      .before = window_size - 1,
+      .complete = TRUE),
+    
+    tvix = tvix * beta * 10
+    
+  ) |> 
+  ungroup()
+
 
 
 # Momentum ----------------------------------------------------------------
@@ -148,22 +254,7 @@ data <- data |>
                         }
                       }, 
                       fill = NA,         
-                      align = "right"),
-    
-    
-    # Absolute 12 month vola difference
-    vol4 = rollapplyr(rollvol, 
-                      width = 12, 
-                      FUN = function(x) {
-                        if(sum(!is.na(x)) < 9) {
-                          NA
-                        } else {
-                          mean(x[!is.na(x)]) - x[12]
-                        }
-                      }, 
-                      fill = NA,         
-                      align = "right"),
-    vol4 = sign(vol4)
+                      align = "right")
     
   )
 
@@ -284,7 +375,6 @@ data <- data |>
 
 
 
-
 # Averaging ---------------------------------------------------------------
 
 
@@ -297,7 +387,7 @@ data <- data |>
     mom = rowMeans(pick(mom1, mom3, mom6, mom12, smom1, smom3, smom6, smom12), na.rm = TRUE),
     
     # Aggregate Volatility Signals
-    vol = rowMeans(pick(vol1, vol2, vol3, vol4), na.rm = TRUE),
+    vol = rowMeans(pick(vol1, vol2, vol3), na.rm = TRUE),
     
     # Aggregate Reversal Signals
     rev = rowMeans(pick(rev1, rev2, rev3), na.rm = TRUE),
@@ -356,6 +446,7 @@ long <- long |>
       signal %in% c("vol1", "vol2", "vol3", "vol4", "vol") ~ "volatility",
       signal %in% c("rev1", "rev2", "rev3", "rev") ~ "reversal",
       signal %in% c("char1", "char2", "char3", "char") ~ "char_spread",
+      signal %in% c("pls12", "pls24", "pls36") ~ "PLS",
       signal == "all" ~ "all"
     )
   )
