@@ -389,7 +389,89 @@ data <- data |>
 
 # PLS ---------------------------------------------------------------------
 
+library(pls)  # Make sure to add this to your libraries section
 
+# Define the signals to use in PLS (excluding aggregated signals and other variables)
+pls_signals <- c("cpi", "gdp", "fed", "vix", "slope", "tvix",
+                 "mom1", "smom1", "mom3", "smom3", "mom6", "smom6", "mom12", "smom12",
+                 "vol1", "vol2", "vol3", 
+                 "rev1", "rev2", "rev3",
+                 "char1", "char2", "char3")
+
+# Rolling window PLS function to predict return_t+1 with signals_t
+fit_pls_rolling <- function(df, signals, target = "return", window = 12) {
+  
+  X <- df[, signals, drop = FALSE]
+  y <- df[[target]]
+  n <- nrow(df)
+  predictions <- rep(NA, n)
+  
+  for (i in 6:(n-1)) {  # Start at 6 (half window) and stop at n-1 since we need t+1
+    
+    # Define training window - use data up to current period
+    start_idx <- max(1, i - window + 1)
+    train_idx <- start_idx:i
+    
+    # Training: use signals_t to predict return_t+1
+    X_train <- X[train_idx, , drop = FALSE]
+    y_train <- y[train_idx + 1]  # Lead the target by 1 period
+    
+    # Keep rows where future target is available and predictors have some data
+    valid_rows <- !is.na(y_train) & apply(X_train, 1, function(x) sum(!is.na(x)) >= 3)
+    
+    if (sum(valid_rows) < 5) next  # Need minimum training observations (reduced for 12-month window)
+    
+    X_train <- X_train[valid_rows, , drop = FALSE]
+    y_train <- y_train[valid_rows]
+    
+    # Keep predictors that have at least 40% non-NA values and some variation
+    keep_cols <- sapply(X_train, function(x) {
+      non_na_pct <- sum(!is.na(x)) / length(x)
+      has_variation <- length(unique(x[!is.na(x)])) > 1
+      non_na_pct >= 0.4 & has_variation  # Lowered threshold for 12-month window
+    })
+    
+    if (sum(keep_cols) < 2) next  # Need at least 2 predictors
+    
+    X_train <- X_train[, keep_cols, drop = FALSE]
+    
+    # Fit PLS model
+    tryCatch({
+      pls_data <- data.frame(y = y_train, X_train)
+      pls_fit <- plsr(y ~ ., 
+                      data = pls_data,
+                      ncomp = 1,
+                      scale = TRUE,
+                      validation = "none")
+      
+      # Predict return_t+1 using current signals_t
+      X_current <- X[i, names(X_train), drop = FALSE]
+      non_na_count <- sum(!is.na(X_current))
+      
+      if (non_na_count >= max(1, floor(ncol(X_current) * 0.3))) {
+        pred <- predict(pls_fit, newdata = X_current, ncomp = 1)
+        predictions[i + 1] <- as.numeric(pred)  # Store prediction for t+1
+      }
+      
+    }, error = function(e) {
+      # Continue on error
+    })
+  }
+  
+  return(predictions)
+}
+
+# Apply PLS to each factor
+data <- data |> 
+  group_by(factor) |> 
+  arrange(eom) |> 
+  mutate(
+    pls = fit_pls_rolling(cur_data(), pls_signals, "return"),
+    pls1 = sign(pls),
+    pls2 = pls * scale + mu
+  ) |> 
+  ungroup() |> 
+  select(-pls)
 
 
 # Averaging ---------------------------------------------------------------
@@ -467,7 +549,7 @@ long <- long |>
       signal %in% c("rev1", "rev2", "rev3", "rev") ~ "reversal",
       signal %in% c("char1", "char2", "char3", "char") ~ "char_spread",
       signal %in% c("cpi", "gdp", "fed", "vix", "tvix", "slope", "macro") ~ "macro",
-      signal == "all" ~ "all"
+      signal %in% c("all", "pls1", "pls2") ~ "all"
     )
   )
 
