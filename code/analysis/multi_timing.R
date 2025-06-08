@@ -35,13 +35,16 @@ port <- data |>
   group_by(eom) |> 
   mutate(
     sort = ntile(weight, quant)
-  )
+  ) |> 
+  ungroup()
 
 # Save the member of the multi-factor portfolio
 member <- port |> 
   filter(sort == quant) |> 
   select(eom, factor, weight, sort)
 
+
+save(member, file = "data/member.RData")
 
 # check <- test |> 
 #   filter(!is.na(sort)) |> 
