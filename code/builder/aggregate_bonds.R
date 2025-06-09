@@ -61,15 +61,17 @@ aggre <- aggre |>
     .groups = "drop"
   )
 
+set.seed(2025)
 # Add flags for long-only, top bonds
 aggre <- aggre |> 
-  group_by(eom) |> 
+  group_by(eom) |>
   mutate(
     flag_long = ifelse(weight > 0, 1, 0),
-    flag_top10 = ifelse(weight >= quantile(weight, 0.90), 1, 0),
-    flag_top5 = ifelse(weight >= quantile(weight, 0.95), 1, 0),
-    flag_top1 = ifelse(weight >= quantile(weight, 0.99), 1, 0)
-  )
+    flag_max = ifelse(weight >= quantile(weight, 0.99), 1, 0),
+    flag_top = rank(-weight, ties.method = "random"),
+    flag_top = ifelse(flag_top <= 100, 1, 0)
+  ) |> 
+  ungroup()
 
 
 rm(member, const, bond)
