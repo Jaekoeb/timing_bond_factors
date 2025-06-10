@@ -165,8 +165,15 @@ print(
 # Regressions -------------------------------------------------------------
 
 
+# Prepare Market Data
+market <- market |> 
+  select(eom, factor, return) |> 
+  filter(factor != "market") |> 
+  pivot_wider(names_from = factor, values_from = return)
 
 
+# Left Join with portfolio
+port <- left_join(port, market, join_by(eom == eom))
 
 # Scale to % for interpretability
 port <- port |> 
