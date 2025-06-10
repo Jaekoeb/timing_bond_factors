@@ -7,6 +7,9 @@ library(tidyverse)
 library(xts)
 library(PerformanceAnalytics)
 library(scales)
+library(stargazer)
+library(xtable)
+library(PeerPerformance)
 
 load("data/timing.RData")
 load("data/market.RData")
@@ -92,10 +95,10 @@ rownames(perf) <- c("Ann. Return", "Ann. Volatility", "Worst Drawdown", "Sharpe 
 # Add difference column
 perf <- cbind(perf, "diff" = perf[,1] - perf[,2])
 
-sink("results/multi_timing/performance.txt")
-xtable::xtable(perf,
-               caption = "Multi-Factor Metrics")
-sink()
+print(
+  xtable(perf, caption = "Multi-Factor Metrics"),
+  file = "results/multi_timing/performance.txt"
+)
 
 
 
@@ -112,16 +115,26 @@ df <- port |>
     bench = 100 * cumprod(1+bench) / first(1+bench)
   ) |> 
   select(eom, port, bench) |> 
-  pivot_longer(!eom, names_to = "strategy", values_to = "value")
+  rename(
+    `Multi-Timing` = port,
+    Benchmark = bench
+  )
 
 
-gg <- ggplot(data = df, aes(x = eom, y = value, group = strategy, color = strategy)) +
-  geom_line(size = 1) +
-  labs(title = "Portfolio Performance Over Time",
+# Base plot with ribbon
+gg <- ggplot(df, aes(x = eom)) +
+  geom_ribbon(aes(ymin = pmin(Benchmark, `Multi-Timing`), ymax = pmax(Benchmark, `Multi-Timing`)),
+              fill = "grey70", alpha = 0.4) +
+  geom_line(aes(y = Benchmark, color = "Benchmark"), linewidth = 1) +
+  geom_line(aes(y = `Multi-Timing`, color = "Multi-Timing"), linewidth = 1) +
+  scale_color_manual(values = c("Benchmark" = space[3], "Multi-Timing" = space[1])) +
+  labs(title = "Performance Comparison of Timed vs Untimed Factor Portfolio",
+       subtitle = "Both portfolios scaled to an annual volatility of 5%",
        x = "",
-       y = "Value",
-       color = "Portfolio") +
+       y = "",
+       color = "Strategy") +
   theme_bw()
+
 
 ggsave(
   filename = "results/multi_timing/performance_graph.pdf",
@@ -136,34 +149,42 @@ rm(df, gg, perf, bench.vol, port.vol, target_vol)
 
 
 
+# Sharpe Ratios -----------------------------------------------------------
+
+
+sharpe <- with(port, sharpeTesting(port, bench))
+sharpe <- as.data.frame(t(unlist(sharpe)))
+colnames(sharpe) <- c("Obs.", "Monthly Timed SR", "Monthly Untimed SR", "Difference", "T-Stat", "P-Value")
+
+
+print(
+  xtable(sharpe, caption = "Multi-Factor Sharpe Ratios"),
+  file = "results/multi_timing/sharpe.txt"
+)
 
 # Regressions -------------------------------------------------------------
 
 
-# Prepare Market Data
-market <- market |> 
-  select(eom, factor, return) |> 
-  filter(factor != "market") |> 
-  pivot_wider(names_from = factor, values_from = return)
 
 
-# Left Join with portfolio
-port <- left_join(port, market, join_by(eom == eom))
 
+# Scale to % for interpretability
+port <- port |> 
+  mutate(across(-eom, ~100*.))
 
 
 # Regression against benchmark portfolio
 reg <- lm(data = port, port ~ bench)
-summary(reg)
+stargazer(reg, type = "latex", out = "results/multi_timing/benchmark_regression.tex")
+
 
 # Regression against default and term factor
-reg <- lm(data = port, port ~ def + term)
-summary(reg)
+reg1 <- lm(data = port, port ~ def + term)
 
 # Regression of Benchmark against default and term factor
-reg <- lm(data = port, bench ~ def + term)
-summary(reg)
+reg2 <- lm(data = port, bench ~ def + term)
 
+stargazer(reg1, reg2, type = "latex", out = "results/multi_timing/defterm_regression.tex")
 
 
 

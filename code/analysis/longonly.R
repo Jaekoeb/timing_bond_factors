@@ -5,6 +5,10 @@
 library(tidyverse)
 library(xts)
 library(PerformanceAnalytics)
+library(xtable)
+library(Farben)
+library(stargazer)
+library(PeerPerformance)
 
 load("data/aggregated_bonds.RData")
 load("data/market.RData")
@@ -65,10 +69,11 @@ perf <- rbind(
 rownames(perf) <- c("Ann. Return", "Ann. Volatility", "Worst Drawdown", "Sharpe Ratio")
 
 
-sink("results/long_only/performance.txt")
-xtable::xtable(perf,
-               caption = "Multi-Factor Metrics")
-sink()
+
+print(
+  xtable(perf, caption = "Multi-Factor Metrics"),
+  file = "results/long_only/performance.txt"
+)
 
 
 
@@ -97,11 +102,16 @@ df <- returns |>
 
 gg <- ggplot(data = df, aes(x = eom, y = value, group = strategy, color = strategy)) +
   geom_line(linewidth = 1) +
-  labs(title = "Portfolio Performance Over Time",
+  labs(title = "Long-Only Strategies compared to the Market Portfolio",
        x = "",
-       y = "Value",
-       color = "Portfolio") +
+       y = "",
+       color = "Strategy") +
+  scale_color_manual(
+    values = c("market" = "black", "long" = space[1], "top_max" = space[2], "top_100" = space[3]),
+    labels = c("market" = "Market Portfolio", "long" = "Long-Only", "top_max" = "Top 1% Long", "top_100" = "Top 100 Long")  # Custom legend labels
+  ) +
   theme_bw()
+
 
 ggsave(
   filename = "results/long_only/performance_graph.pdf",
@@ -115,6 +125,35 @@ rm(df, gg, perf, long.vol, market.vol, target_vol, top100.vol, topmax.vol)
 
 
 
+# Sharpe Ratios -----------------------------------------------------------
+
+sharpe <- data.frame()
+
+# Long Only
+stat <- with(returns, sharpeTesting(long, market))
+stat <- as.data.frame(t(unlist(stat)))
+stat$name <- "Long Only"
+sharpe <- rbind(sharpe, stat)
+
+# Top 1% Bonds
+stat <- with(returns, sharpeTesting(top_max, market))
+stat <- as.data.frame(t(unlist(stat)))
+stat$name <- "Top 1%"
+sharpe <- rbind(sharpe, stat)
+
+# Top 100 Bonds
+stat <- with(returns, sharpeTesting(top_100, market))
+stat <- as.data.frame(t(unlist(stat)))
+stat$name <- "Top 100"
+sharpe <- rbind(sharpe, stat)
+
+colnames(sharpe) <- c("Obs.", "Strategy SR", "Market SR", "Difference", "T-Stat", "P-Value", "Strategy")
+sharpe <- sharpe |> select(Strategy, everything())
+
+print(
+  xtable(sharpe, caption = "Long Only Sharpe Ratios"),
+  file = "results/long_only/sharpe.txt"
+)
 
 # Regressions -------------------------------------------------------------
 
@@ -125,15 +164,15 @@ returns <- returns |> mutate(across(-eom, ~ 100 * .))
 
 
 # long only
-reg <- lm(long ~ market, data = returns)
-summary(reg)
+reg1 <- lm(long ~ market, data = returns)
 
 
 # Top 1% bonds
-reg <- lm(top_max ~ market, data = returns)
-summary(reg)
+reg2 <- lm(top_max ~ market, data = returns)
 
 
 # Top 100 bonds
-reg <- lm(top_100 ~ market, data = returns)
-summary(reg)
+reg3 <- lm(top_100 ~ market, data = returns)
+
+# Save regression results
+stargazer(reg1, reg2, reg3, type = "latex", out = "results/long_only/regression.tex")

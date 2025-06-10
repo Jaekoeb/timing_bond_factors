@@ -7,6 +7,7 @@
 library(tidyverse)
 library(corrplot)
 library(pheatmap)
+library(Farben)
 
 load("data/timing.RData")
 
@@ -25,6 +26,16 @@ signals <- data |>
     across(-c(eom, signal, category), ~ na_if(., NaN))
   )
 
+
+# Set colors for all plots
+colors = c(
+  "all" = "grey",
+  "char_spread" = basic[1],
+  "macro" = basic[2],
+  "momentum" = basic[3],
+  "reversal" = basic[4],
+  "volatility" = basic[5]
+)
 
 # Correlation -------------------------------------------------------------
 
@@ -95,6 +106,7 @@ gg <- ggplot(summary_df, aes(x = signal, y = mean_weight, color = category, fill
     fill = "Category", # Added fill to labs for legend
     title = "Mean Weight per Signal with 5th and 95th Percentiles"
   ) +
+  scale_fill_manual(values = colors) +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) # Rotate x-axis labels
 
@@ -141,6 +153,7 @@ gg <- ggplot(summary_df, aes(x = signal, y = mean_return, color = category, fill
     fill = "Category", # Added fill to labs for legend
     title = "Mean Excess Return against untimed per Signal with 25th and 75th Percentiles"
   ) +
+  scale_fill_manual(values = colors) +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) # Rotate x-axis labels
 
@@ -159,9 +172,8 @@ rm(gg, summary_df)
 # Sharpe Ratio ------------------------------------------------------------
 
 
-
-sharpe <- data |> 
-  group_by(factor, signal) |> 
+sharpe <- data |>
+  group_by(factor, signal) |>
   summarise(
     sharpe = 12 * mean(return, na.rm = TRUE) / sd(return, na.rm = TRUE),
     usharpe = 12 * mean(uret, na.rm = TRUE) / sd(uret, na.rm = TRUE),
@@ -185,14 +197,15 @@ df_summary <- sharpe |>
 gg <- ggplot(data = df_summary,
        aes(x = reorder(signal, -diff), y = diff, group = category, color = category, fill = category)) +
   geom_col(color = "black") + # Add black outline and use fill for color
+  scale_fill_manual(values = colors) +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) + # Tilt x-axis labels
   labs(
     x = "Signal",
-    y = "Difference",
+    y = expression(Delta * SR),
     color = "Category",
     fill = "Category",
-    title = "Summary of Differences by Signal and Category" # Example title
+    title = "Average Difference in Sharpe Ratio between Timed vs Untimed" # Example title
   )
 
 
@@ -248,11 +261,11 @@ gg <- ggplot(df_long, aes(x = signal, y = factor, fill = alpha)) +
     mid    = "grey80",
     high   = "darkgreen",
     midpoint = 0,
-    name   = "SR"
+    name   = expression(Delta * SR)
   ) +
   labs(
-    x = NULL, y = NULL,
-    title = "Clustered Heatmap of Factor × Signal Sharpe Ratio"
+    x = "Signal", y = "Factor",
+    title = "Difference in Sharpe Ratio between Timed vs Untimed for each pair"
   ) +
   theme_minimal(base_size = 12) +
   theme(
@@ -320,6 +333,7 @@ gg <- ggplot(summary_df, aes(x = signal, y = mean_alpha, color = category, fill 
     fill = "Category", # Added fill to labs for legend
     title = "Mean Alpha against untimed per Signal with 5th and 95th Percentiles"
   ) +
+  scale_fill_manual(values = colors) +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) # Rotate x-axis labels
 
@@ -378,8 +392,8 @@ gg <- df |>
   ggplot(aes(x = signal, y = percentage, fill = significance)) +
   geom_col() +
   scale_fill_manual(values = c("Positively Significant" = "darkgreen", "Negatively Significant" = "darkred", "Not Significant" = "grey")) +
-  labs(title = "Percentage of Significance by Signal (Stacked)",
-       y = "Percentage") +
+  labs(title = "Percentage of significant Alphas for each Signal",
+       y = "", x = "Signal", fill = "", color = "") +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 

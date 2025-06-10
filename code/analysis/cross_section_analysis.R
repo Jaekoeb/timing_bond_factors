@@ -58,7 +58,7 @@ rm(df, cor_matrix)
 # Yield
 gg <- data %>%
   # Convert 'factor' to a factor type if it isn't already
-  mutate(factor = factor(factor)) %>%
+  mutate(factor = factor(factor), yield = yield * 100) %>%
   # Reorder factors based on median yield (largest to smallest)
   # We use -yield inside reorder for descending order based on the summary function (default is median)
   ggplot(aes(x = reorder(factor, yield, FUN = function(x) -median(x)), y = yield)) +
@@ -69,7 +69,7 @@ gg <- data %>%
   # Add custom labels
   labs(
     title = "Yield Distribution by Factor",
-    x = "Factor Category",
+    x = "",
     y = "Yield (%)"
   )
 
@@ -98,7 +98,7 @@ gg <- data %>%
   # Add custom labels
   labs(
     title = "Duration Distribution by Factor",
-    x = "Factor Category",
+    x = "",
     y = "Duration"
   )
 
@@ -213,7 +213,7 @@ gg <- ggplot(res_df, aes(x = Factor, y = Estimate)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   labs(
     x = NULL,
-    y = "Mean Excess Return",
+    y = "Excess Return",
     title = "Monthly Excess Returns with 95% Newey–West CIs"
   )
 
@@ -310,11 +310,20 @@ library(runner)
 
 for (name in factors) {
   
-  gg <- roll_alpha(
+  # Perform rolling regression
+  df <- roll_alpha(
     data = fact,
     response_col_name = name,
-    window_size = 30
-  ) |> 
+    window_size = 24
+  )
+  
+  # Remove all NAs
+  df <- na.omit(df)
+  
+  # Scale to %
+  df <- df |> mutate(across(c(alpha, low_ci, high_ci), ~100*.))
+  
+  gg <- df |> 
     ggplot(aes(x = eom)) +
     # Add the confidence interval ribbon first (behind the line)
     geom_ribbon(aes(ymin = low_ci, ymax = high_ci),
@@ -324,9 +333,9 @@ for (name in factors) {
     geom_hline(yintercept = 0, linetype = "dotted", color = "red", size = 1) +
     labs(
       title = "Rolling Window Regression Intercept (Alpha) with 95% CI",
-      subtitle = paste0("Formula: ", name, " ~ term + def ", "Window: 30"),
-      x = "Date",
-      y = "Rolling Alpha (Intercept)"
+      subtitle = paste0("Formula: ", name, " ~ term + def ", "Window: 24"),
+      x = "",
+      y = "Rolling Alpha (in %)"
     ) +
     theme_bw()
   

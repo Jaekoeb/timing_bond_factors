@@ -30,7 +30,7 @@ fact <- left_join(fact, market, join_by(date == date))
 
 
 # Compare sample period
-# fact <- fact |> filter(date >= "2002-08-31")
+fact <- fact |> filter(date >= "2002-08-31")
 
 
 # Performance -------------------------------------------------------------
@@ -89,6 +89,130 @@ ggsave(
 
 rm(value, perf, gg)
 
+
+# Excess Returns ----------------------------------------------------------
+
+# assume `fact` is your data.frame, date in col 1 and factors in col 2:24
+factors <- names(fact)[-1]
+
+# Loop over each factor, fit lm(~1), get NW‐CI on intercept
+res_df <- map_dfr(factors, function(f) {
+  # fit constant-only model
+  mod <- lm(reformulate(termlabels = "1", response = f), data = fact)
+  
+  # tidy it, asking for Newey–West vcov and conf.int
+  tidy(mod,
+       conf.int  = TRUE,
+       conf.level = 0.95,
+       vcov.     = function(x) NeweyWest(x, lag = NULL, prewhite = FALSE)
+  ) %>%
+    filter(term == "(Intercept)") %>%
+    transmute(
+      Factor = f,
+      Estimate = estimate,
+      Lower    = conf.low,
+      Upper    = conf.high
+    )
+})
+
+
+
+
+gg <- ggplot(res_df, aes(x = Factor, y = Estimate)) +
+  geom_errorbar(aes(ymin = Lower, ymax = Upper), width = 0.2) +
+  geom_point(shape = 21, fill = "grey", color = "black", size = 3) +
+  geom_hline(yintercept = 0, linetype = "dotted", color = "red", size = 1) +
+  scale_y_continuous(labels = percent_format(accuracy = 0.1)) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(
+    x = NULL,
+    y = "Excess Return",
+    title = "Monthly Excess Returns with 95% Newey–West CIs"
+  )
+
+
+ggsave(
+  filename = "results/cross_section/robustness/excess_returns.pdf",
+  plot = gg,
+  unit = "cm",
+  width = 18,
+  height = 12
+)
+
+
+rm(gg, res_df)
+
+
+
+
+# Alphas (Multiple Testing) ------------------------------------------------------------------
+
+# 1. define which columns are your dependent vars (exclude date, def, term)
+response_vars <- setdiff(names(fact)[-1], c("def", "term", "market"))
+
+# 2. loop, fit y ~ def + term, extract alpha & CIs
+res_df <- map_dfr(response_vars, function(f) {
+  form <- reformulate(c("def", "term"), response = f)
+  mod  <- lm(form, data = fact)
+  
+  tidy(mod,
+       conf.int   = TRUE,
+       conf.level = 0.95,
+       vcov.      = function(x) NeweyWest(x, lag = NULL, prewhite = FALSE)
+  ) %>%
+    filter(term == "(Intercept)") %>%
+    transmute(
+      Factor   = f,
+      Estimate = estimate * 100,
+      Lower    = conf.low  * 100,
+      Upper    = conf.high * 100,
+      p_raw    = p.value
+    )
+})
+
+
+# 3. adjust for multiple testing
+res_df <- res_df |> 
+  mutate(
+    p_bonf  = p.adjust(p_raw, method = "bonferroni"),
+    p_fdr   = p.adjust(p_raw, method = "BH")
+  )
+
+sink("results/cross_section/robustness/exret_alpha.txt")
+xtable::xtable(res_df,
+               caption = "Factor Metrics")
+sink()
+
+
+
+# 4. Plot
+gg <- ggplot(res_df, aes(x = Factor, y = Estimate)) +
+  geom_errorbar(aes(ymin = Lower, ymax = Upper), width = 0.2) +
+  geom_point(shape = 21, fill = "grey", color = "black", size = 3) +
+  geom_hline(yintercept = 0, linetype = "dotted", color = "red", size = 1) +
+  scale_y_continuous(labels = number_format(suffix = "%", accuracy = 0.1)) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(
+    x     = NULL,
+    y     = "Intercept (α) in %",
+    title = "Estimated α from  y ~ def + term  with 95% Newey–West CIs"
+  )
+
+
+# 5. Save
+ggsave(
+  filename = "results/cross_section/robustness/exret_alphas.pdf",
+  plot = gg,
+  unit = "cm",
+  width = 18,
+  height = 12
+)
+
+
+
+rm(response_vars, gg)
 
 
 
