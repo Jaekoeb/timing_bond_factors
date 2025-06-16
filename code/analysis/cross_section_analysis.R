@@ -261,7 +261,6 @@ res_df <- map_dfr(response_vars, function(f) {
 # 3. adjust for multiple testing
 res_df <- res_df |> 
   mutate(
-    p_bonf  = p.adjust(p_raw, method = "bonferroni"),
     p_fdr   = p.adjust(p_raw, method = "BH")
   )
 

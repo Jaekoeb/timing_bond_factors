@@ -34,19 +34,21 @@ const <- const |> mutate(id = format(eom, "%Y-%m"))
 # Join constituents and multi-timing
 aggre <- inner_join(const, member, join_by(id == id, factor == factor))
 
+# Join bond info
+aggre <- left_join(aggre, bond, join_by(id == id, cusip == cusip))
+
 # Compute weights
 aggre <- aggre |> 
-  group_by(eom, factor) |> 
+  group_by(eom, factor, rating_group) |> 
   mutate(
-    weight = 1 / n()
+    weight = market_value / sum(market_value) * (1/3)
   ) |> 
-  ungroup() |> 
+  ungroup() |>
   mutate(
     weight = ifelse(sort == 5, weight, -weight)
   )
 
-# Join bond info
-aggre <- left_join(aggre, bond, join_by(id == id, cusip == cusip))
+
 
 # Summarize single bonds across portfolio
 aggre <- aggre |> 
@@ -67,11 +69,12 @@ aggre <- aggre |>
   group_by(eom) |>
   mutate(
     flag_long = ifelse(weight > 0, 1, 0),
-    flag_max = ifelse(weight >= quantile(weight, 0.99), 1, 0),
-    flag_top = rank(-weight, ties.method = "random"),
-    flag_top = ifelse(flag_top <= 100, 1, 0)
+    weight_help = ifelse(flag_long == 1, weight, NA), # helper, fix top_1 and top_10
+    flag_top1 = ifelse(weight >= quantile(weight_help, 0.99, na.rm = TRUE), 1, 0),
+    flag_top10 = ifelse(weight >= quantile(weight_help, 0.9, na.rm = TRUE), 1, 0)
   ) |> 
-  ungroup()
+  ungroup() |> 
+  select(-weight_help)
 
 
 rm(member, const, bond)

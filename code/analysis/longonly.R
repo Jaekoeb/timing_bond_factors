@@ -22,15 +22,42 @@ market <- market |>
 
 
 
+# Number of Bonds ---------------------------------------------------------
+
+
+
 # Lets see how many bonds are in each portfolio
 check <- aggre |> 
   group_by(eom) |> 
   summarize(
     nobs = n(),
     long = sum(flag_long),
-    top_max = sum(flag_max),
-    top_100 = sum(flag_top)
+    top_10 = sum(flag_top10),
+    top_1 = sum(flag_top1)
   )
+
+
+
+check <- check |> select(-eom) |> as.matrix()
+
+check <- apply(check, 2, FUN = median)
+
+
+# Weights -----------------------------------------------------------------
+
+weight <- aggre |> 
+  group_by(eom) |> 
+  summarize(
+    long = sum(flag_long * weight),
+    top_10 = sum(flag_top10 * weight),
+    top_1 = sum(flag_top1 * weight),
+    .groups = "drop"
+  ) |> 
+  mutate(
+    top_10 = top_10 / long,
+    top_1 = top_1 / long
+  ) |> 
+  select(top_10, top_1)
 
 
 
@@ -41,14 +68,18 @@ returns <- aggre |>
   group_by(eom) |> 
   summarize(
     long = sum(flag_long * weight * ret_exc) / sum(flag_long * weight),
-    top_max = sum(flag_max * weight * ret_exc) / sum(flag_max * weight),
-    top_100 = sum(flag_top * weight * ret_exc) / sum(flag_top * weight),
+    top_1 = sum(flag_top1 * weight * ret_exc) / sum(flag_top1 * weight),
+    top_10 = sum(flag_top10 * weight * ret_exc) / sum(flag_top10 * weight),
     .groups = "drop"
   )
 
 
 # Join market data frame
 returns <- left_join(returns, market, join_by(eom == eom))
+
+# Remove outlier day
+returns <- returns |> filter(eom != "2003-12-31")
+
 rm(market)
 
 # Performance -------------------------------------------------------------
@@ -61,12 +92,13 @@ perf <- rbind(
   Return.annualized(perf) * 100,
   StdDev.annualized(perf) * 100,
   maxDrawdown(perf) * 100,
-  SharpeRatio.annualized(perf, Rf = 0)
+  SharpeRatio.annualized(perf, Rf = 0),
+  VaR(perf, method = "gaussian") * 100
 )
 
 
 # Change column names
-rownames(perf) <- c("Ann. Return", "Ann. Volatility", "Worst Drawdown", "Sharpe Ratio")
+rownames(perf) <- c("Ann. Return", "Ann. Volatility", "Worst Drawdown", "Sharpe Ratio", "VaR (95%)")
 
 
 
@@ -78,37 +110,32 @@ print(
 
 
 
-# Scale the return series to match in volatility
-target_vol <- 0.05
-market.vol <- sd(returns$market) * sqrt(12)
-long.vol <- sd(returns$long) * sqrt(12)
-topmax.vol <- sd(returns$top_max) * sqrt(12)
-top100.vol <- sd(returns$top_100) * sqrt(12)
+# Define target monthly volatility (since returns appear to be monthly)
+target_monthly_vol <- 0.05 / sqrt(12)  # Convert annual target to monthly
 
 df <- returns |> 
   mutate(
-    market = market * target_vol / market.vol,
-    market = 100 * cumprod(1+market) / first(1+market),
-    long = long * target_vol / long.vol,
-    long = 100 * cumprod(1+long) / first(1+long),
-    top_max = top_max * target_vol / topmax.vol,
-    top_max = 100 * cumprod(1+top_max) / first(1+top_max),
-    top_100 = top_100 * target_vol / top100.vol,
-    top_100 = 100 * cumprod(1+top_100) / first(1+top_100)
+    # Scale each series to target monthly volatility
+    across(c(market, long, top_1, top_10),
+           ~ .x * target_monthly_vol / sd(.x, na.rm = TRUE)),
+    # Convert to cumulative performance (base 100)
+    across(c(market, long, top_1, top_10), 
+           ~ 100 * cumprod(1 + .x) / first(1 + .x))
   ) |> 
-  select(eom, market, long, top_max, top_100) |> 
+  select(eom, market, long, top_1, top_10) |> 
   pivot_longer(!eom, names_to = "strategy", values_to = "value")
 
 
 gg <- ggplot(data = df, aes(x = eom, y = value, group = strategy, color = strategy)) +
   geom_line(linewidth = 1) +
   labs(title = "Long-Only Strategies compared to the Market Portfolio",
+       subtitle = "Scaled to 5% annual volatility",
        x = "",
        y = "",
        color = "Strategy") +
   scale_color_manual(
-    values = c("market" = "black", "long" = space[1], "top_max" = space[2], "top_100" = space[3]),
-    labels = c("market" = "Market Portfolio", "long" = "Long-Only", "top_max" = "Top 1% Long", "top_100" = "Top 100 Long")  # Custom legend labels
+    values = c("market" = "black", "long" = space[1], "top_1" = space[2], "top_10" = space[3]),
+    labels = c("market" = "Market Portfolio", "long" = "Long-Only", "top_1" = "Top 1% Long", "top_10" = "Top 10% Long")  # Custom legend labels
   ) +
   theme_bw()
 
@@ -121,7 +148,7 @@ ggsave(
   height = 12
 )
 
-rm(df, gg, perf, long.vol, market.vol, target_vol, top100.vol, topmax.vol)
+rm(df, gg, target_monthly_vol)
 
 
 
@@ -136,13 +163,13 @@ stat$name <- "Long Only"
 sharpe <- rbind(sharpe, stat)
 
 # Top 1% Bonds
-stat <- with(returns, sharpeTesting(top_max, market))
+stat <- with(returns, sharpeTesting(top_1, market))
 stat <- as.data.frame(t(unlist(stat)))
 stat$name <- "Top 1%"
 sharpe <- rbind(sharpe, stat)
 
 # Top 100 Bonds
-stat <- with(returns, sharpeTesting(top_100, market))
+stat <- with(returns, sharpeTesting(top_10, market))
 stat <- as.data.frame(t(unlist(stat)))
 stat$name <- "Top 100"
 sharpe <- rbind(sharpe, stat)
@@ -168,11 +195,13 @@ reg1 <- lm(long ~ market, data = returns)
 
 
 # Top 1% bonds
-reg2 <- lm(top_max ~ market, data = returns)
+reg2 <- lm(top_1 ~ market, data = returns)
 
 
 # Top 100 bonds
-reg3 <- lm(top_100 ~ market, data = returns)
+reg3 <- lm(top_10 ~ market, data = returns)
 
 # Save regression results
 stargazer(reg1, reg2, reg3, type = "latex", out = "results/long_only/regression.tex")
+
+rm(reg1, reg2, reg3, stat)
