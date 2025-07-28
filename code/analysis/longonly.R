@@ -9,6 +9,8 @@ library(xtable)
 library(Farben)
 library(stargazer)
 library(PeerPerformance)
+library(sandwich)
+library(lmtest)
 
 load("data/aggregated_bonds.RData")
 load("data/market.RData")
@@ -60,8 +62,128 @@ weight <- aggre |>
   select(top_10, top_1)
 
 
+weight <- weight |> 
+  pivot_longer(cols = everything(), names_to = "strategy", values_to = "weight") |> 
+  group_by(strategy) |> 
+  summarize(
+    min = min(weight),
+    q1 = quantile(weight, 0.25),
+    median = quantile(weight, 0.5),
+    q3 = quantile(weight, 0.75),
+    max = max(weight)
+  )
+
+print(
+  xtable(weight, caption = "weight"),
+  file = "results/long_only/weight.txt"
+)
+
+rm(weight)
+
+# Characteristics ---------------------------------------------------------
+
+
+library(dplyr)
+library(tidyr)
+
+chars <- aggre |>
+  mutate(market_value = market_value / 10^6, yield = 100 * yield) |> 
+  pivot_longer(cols = c(flag_long, flag_top1, flag_top10), 
+               names_to = "flag_type", 
+               values_to = "flag_value") |>
+  filter(flag_value == 1) |>
+  group_by(flag_type) |>
+  summarise(
+    across(c(market_value, yield, duration), 
+           list(p5 = ~quantile(.x, 0.05, na.rm = TRUE),
+                q1 = ~quantile(.x, 0.25, na.rm = TRUE),
+                median = ~median(.x, na.rm = TRUE),
+                q3 = ~quantile(.x, 0.75, na.rm = TRUE),
+                p95 = ~quantile(.x, 0.95, na.rm = TRUE)),
+           .names = "{.col}_{.fn}"),
+    .groups = "drop"
+  ) |>
+  # Pivot longer to get one row per flag-characteristic combination
+  pivot_longer(cols = -flag_type,
+               names_to = c("characteristic", "statistic"),
+               names_sep = "_(?=p5|q1|median|q3|p95)",
+               values_to = "value") |>
+  # Pivot wider to get statistics as columns
+  pivot_wider(names_from = statistic,
+              values_from = value) |> 
+  arrange(characteristic, flag_type)
+
+
+print(
+  xtable(chars, caption = "characteristics of long only"),
+  file = "results/long_only/characteristics.txt"
+)
+
+rm(chars)
+
+
+
+# Turnover ----------------------------------------------------------------
+
+
+turn <- aggre |> 
+  pivot_longer(cols = c(flag_long, flag_top1, flag_top10),
+               names_to = "portfolio",
+               values_to = "flag_value") |> 
+  filter(flag_value == 1) |> 
+  group_by(eom, portfolio) |> 
+  mutate(
+    weight = weight / sum(weight, na.rm = TRUE)
+  ) |> 
+  ungroup()
+
+
+turn <- turn |> 
+  group_by(cusip, portfolio) |> 
+  arrange(eom) |> 
+  mutate(
+    weight_lag = ifelse(is.na(lag(weight)), 0, lag(weight)),
+    weight_lag = weight_lag * (1 + ret_exc),
+    turnover = weight - weight_lag
+  ) |> 
+  ungroup()
+
+
+turn <- turn |> 
+  group_by(eom, portfolio) |> 
+  summarize(
+    turnover = sum(abs(turnover)) / 2,
+    turnover = min(turnover, 2),
+    .groups = "drop"
+  )
+
+
+# remove first observation
+turn <- turn |> filter(eom != "2002-09-30")
+
+turn <- turn |>
+  mutate(turnover = 100 * turnover) |> 
+  group_by(portfolio) |> 
+  summarise(
+    min = min(turnover),
+    q1 = quantile(turnover, 0.25),
+    median = quantile(turnover, 0.5),
+    q3 = quantile(turnover, 0.75),
+    max = max(turnover),
+    .groups = "drop"
+  )
+
+
+print(
+  xtable(turn, caption = "turnover"),
+  file = "results/long_only/turnover.txt"
+)
+
+rm(turn)
+
 
 # Returns Series ----------------------------------------------------------
+
 
 # Compute the return of each portfolio
 returns <- aggre |> 
@@ -81,6 +203,7 @@ returns <- left_join(returns, market, join_by(eom == eom))
 returns <- returns |> filter(eom != "2003-12-31")
 
 rm(market)
+
 
 # Performance -------------------------------------------------------------
 
@@ -182,26 +305,71 @@ print(
   file = "results/long_only/sharpe.txt"
 )
 
+
+
 # Regressions -------------------------------------------------------------
 
 
-# Scale to (%) for interpretability
-returns <- returns |> mutate(across(-eom, ~ 100 * .))
+# Scale to %
+returns <- returns |> mutate(across(-eom, ~ 100*.))
 
-
-
-# long only
+# Run your regressions
 reg1 <- lm(long ~ market, data = returns)
+reg2 <- lm(top_10 ~ market, data = returns)
+reg3 <- lm(top_1 ~ market, data = returns)
+
+# Compute Newey-West standard errors
+# Specify the lag parameter based on your data frequency
+nw_se1 <- sqrt(diag(NeweyWest(reg1, lag = 6, prewhite = FALSE)))
+nw_se2 <- sqrt(diag(NeweyWest(reg2, lag = 6, prewhite = FALSE)))
+nw_se3 <- sqrt(diag(NeweyWest(reg3, lag = 6, prewhite = FALSE)))
+
+# Create list of standard errors for stargazer
+se_list <- list(nw_se1, nw_se2, nw_se3)
+
+# Save regression results with Newey-West standard errors
+stargazer(reg1, reg2, reg3, 
+          type = "latex", 
+          se = se_list,
+          out = "results/long_only/regression.tex")
+
+rm(reg1, reg2, reg3, nw_se1, nw_se2, nw_se3, se_list)
 
 
-# Top 1% bonds
-reg2 <- lm(top_1 ~ market, data = returns)
+# ICE BofA ----------------------------------------------------------------
 
 
-# Top 100 bonds
-reg3 <- lm(top_10 ~ market, data = returns)
+bofa <- read_csv("data/ice_bofa_index.csv", 
+                 col_types = cols(observation_date = col_date(format = "%Y-%m-%d")))
 
-# Save regression results
-stargazer(reg1, reg2, reg3, type = "latex", out = "results/long_only/regression.tex")
+colnames(bofa) <- c("eom", "bofa")
 
-rm(reg1, reg2, reg3, stat)
+returns <- left_join(returns, bofa, join_by(eom == eom))
+
+returns <- returns |> mutate(bofa = 100 * (lead(bofa) - bofa) / bofa)
+
+
+# Run your regressions
+reg1 <- lm(long ~ bofa, data = returns)
+reg2 <- lm(top_10 ~ bofa, data = returns)
+reg3 <- lm(top_1 ~ bofa, data = returns)
+
+# Compute Newey-West standard errors
+# Specify the lag parameter based on your data frequency
+nw_se1 <- sqrt(diag(NeweyWest(reg1, lag = 6, prewhite = FALSE)))
+nw_se2 <- sqrt(diag(NeweyWest(reg2, lag = 6, prewhite = FALSE)))
+nw_se3 <- sqrt(diag(NeweyWest(reg3, lag = 6, prewhite = FALSE)))
+
+# Create list of standard errors for stargazer
+se_list <- list(nw_se1, nw_se2, nw_se3)
+
+# Save regression results with Newey-West standard errors
+stargazer(reg1, reg2, reg3, 
+          type = "latex", 
+          se = se_list,
+          out = "results/long_only/regression_bofa.tex")
+
+rm(reg1, reg2, reg3, nw_se1, nw_se2, nw_se3, se_list)
+
+
+

@@ -172,15 +172,49 @@ rm(gg, summary_df)
 # Sharpe Ratio ------------------------------------------------------------
 
 
-sharpe <- data |>
-  group_by(factor, signal) |>
+
+sharpe <- data |> 
+  group_by(factor, signal) |> 
   summarise(
-    sharpe = 12 * mean(return, na.rm = TRUE) / sd(return, na.rm = TRUE),
-    usharpe = 12 * mean(uret, na.rm = TRUE) / sd(uret, na.rm = TRUE),
+    # — report annualized Sharpe ratios — #
+    sharpe  = sqrt(12) * mean(return, na.rm = TRUE) / sd(return,  na.rm = TRUE),
+    usharpe = sqrt(12) * mean(uret,   na.rm = TRUE) / sd(uret,    na.rm = TRUE),
     diff = sharpe - usharpe,
+    
+    # — “raw” (per‐period) Sharpe ratios used in the test — #
+    s1 = mean(return, na.rm = TRUE) / sd(return,  na.rm = TRUE),
+    s2 = mean(uret,   na.rm = TRUE) / sd(uret,    na.rm = TRUE),
+    
+    # — difference of raw SRs — #
+    diff_raw = s1 - s2,
+    
+    # — sample size and correlation — #
+    n   = sum(!is.na(return) & !is.na(uret)),
+    rho = cor(return, uret, use = "complete.obs"),
+    
+    # — Jobson–Korkie variance for (s1−s2) — #
+    var_raw = (1 / n) * (2 + s1^2 + s2^2 - 2 * rho * s1 * s2),
+    
+    # — z‑statistic & p‑value — #
+    z       = diff_raw / sqrt(var_raw),
+    p_value = 2 * pnorm(-abs(z)),
+    
+    # — flag significance at α=5% — #
+    significance = case_when(
+      p_value < 0.05 & sign(z) == 1 ~ "Positively Significant",
+      p_value < 0.05 & sign(z) == -1 ~ "Negatively Significant",
+      .default = "Not Significant"
+    ),
+    
     category = first(category),
     .groups = "drop"
-  )
+  ) |> 
+  select(-s1, -s2, -diff_raw, -n , -rho, -var_raw)
+
+
+
+
+
 
 
 df_summary <- sharpe |> 
@@ -217,6 +251,38 @@ ggsave(
   width = 20,
   height = 12
 )
+
+
+
+
+
+gg <- sharpe |>
+  group_by(signal, significance) |>
+  summarise(n = n(), .groups = 'drop') |>
+  group_by(signal) |>
+  mutate(percentage = 100 * n / sum(n)) |>
+  ggplot(aes(x = signal, y = percentage, fill = significance)) +
+  geom_col() +
+  scale_fill_manual(values = c("Positively Significant" = "darkgreen", "Negatively Significant" = "darkred", "Not Significant" = "grey")) +
+  labs(title = "Percentage of significant Sharpe ratios for each Signal",
+       y = "", x = "Signal", fill = "", color = "") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+# Save plot
+ggsave(
+  plot = gg,
+  file = "results/timing/sharpe_significance.pdf",
+  units = "cm",
+  width = 20,
+  height = 12
+)
+
+
+
+
+
 
 
 # 1) Compute a wide matrix

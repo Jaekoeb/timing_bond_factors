@@ -10,6 +10,9 @@ library(scales)
 library(stargazer)
 library(xtable)
 library(PeerPerformance)
+library(sandwich)
+library(lmtest)
+library(Farben)
 
 load("data/timing.RData")
 load("data/market.RData")
@@ -151,10 +154,39 @@ rm(df, gg, perf, bench.vol, port.vol, target_vol)
 
 # Sharpe Ratios -----------------------------------------------------------
 
-
+# Ledoit & Wolf
 sharpe <- with(port, sharpeTesting(port, bench))
 sharpe <- as.data.frame(t(unlist(sharpe)))
-colnames(sharpe) <- c("Obs.", "Monthly Timed SR", "Monthly Untimed SR", "Difference", "T-Stat", "P-Value")
+colnames(sharpe) <- c("Obs.", "Monthly Timed SR", "Monthly Untimed SR", "Difference", "LW T-Stat", "LW P-Value")
+
+
+# Jobson
+jobson <- port |> 
+  summarize(
+    
+    # — “raw” (per‐period) Sharpe ratios used in the test — #
+    s1 = mean(port, na.rm = TRUE) / sd(port,  na.rm = TRUE),
+    s2 = mean(bench,   na.rm = TRUE) / sd(bench,    na.rm = TRUE),
+    
+    # — difference of raw SRs — #
+    diff_raw = s1 - s2,
+    
+    # — sample size and correlation — #
+    n   = sum(!is.na(port) & !is.na(bench)),
+    rho = cor(port, bench, use = "complete.obs"),
+    
+    # — Jobson–Korkie variance for (s1−s2) — #
+    var_raw = (1 / n) * (2 + s1^2 + s2^2 - 2 * rho * s1 * s2),
+    
+    # — z‑statistic & p‑value — #
+    "JK Z-Score"  = diff_raw / sqrt(var_raw),
+    "JK P-Value"  = 2 * pnorm(-abs(`JK Z-Score`))
+  ) |> 
+  select(`JK Z-Score`, `JK P-Value`)
+
+
+# Join the two test results
+sharpe <- cbind(sharpe, jobson)
 
 
 print(
@@ -162,15 +194,16 @@ print(
   file = "results/multi_timing/sharpe.txt"
 )
 
-# Regressions -------------------------------------------------------------
 
+
+
+# Regressions -------------------------------------------------------------
 
 # Prepare Market Data
 market <- market |> 
   select(eom, factor, return) |> 
   filter(factor != "market") |> 
   pivot_wider(names_from = factor, values_from = return)
-
 
 # Left Join with portfolio
 port <- left_join(port, market, join_by(eom == eom))
@@ -179,10 +212,16 @@ port <- left_join(port, market, join_by(eom == eom))
 port <- port |> 
   mutate(across(-eom, ~100*.))
 
-
 # Regression against benchmark portfolio
 reg <- lm(data = port, port ~ bench)
-stargazer(reg, type = "latex", out = "results/multi_timing/benchmark_regression.tex")
+
+# Compute Newey-West standard errors
+nw_se <- sqrt(diag(NeweyWest(reg, lag = 5, prewhite = FALSE)))
+
+stargazer(reg, 
+          type = "latex", 
+          se = list(nw_se),
+          out = "results/multi_timing/benchmark_regression.tex")
 
 
 # Regression against default and term factor
@@ -191,9 +230,18 @@ reg1 <- lm(data = port, port ~ def + term)
 # Regression of Benchmark against default and term factor
 reg2 <- lm(data = port, bench ~ def + term)
 
-stargazer(reg1, reg2, type = "latex", out = "results/multi_timing/defterm_regression.tex")
+# Compute Newey-West standard errors for both regressions
+nw_se1 <- sqrt(diag(NeweyWest(reg1, lag = 5, prewhite = FALSE)))
+nw_se2 <- sqrt(diag(NeweyWest(reg2, lag = 5, prewhite = FALSE)))
 
+# Create list of standard errors for stargazer
+se_list <- list(nw_se1, nw_se2)
 
+stargazer(reg1, reg2, 
+          type = "latex", 
+          se = se_list,
+          out = "results/multi_timing/defterm_regression.tex")
 
-
+# Clean up
+rm(reg, reg1, reg2, nw_se, nw_se1, nw_se2, se_list)
 
