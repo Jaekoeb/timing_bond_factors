@@ -281,8 +281,8 @@ gg <- ggplot(res_df, aes(x = Factor, y = Estimate)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   labs(
     x     = NULL,
-    y     = "Intercept (α) in %",
-    title = "Estimated α from  y ~ def + term  with 95% Newey–West CIs"
+    y     = "Intercept in %",
+    title = expression("Estimated " * alpha * " from y ~ def + term with 95% Newey–West CIs")
   )
 
 

@@ -205,6 +205,8 @@ returns <- returns |> filter(eom != "2003-12-31")
 rm(market)
 
 
+
+
 # Performance -------------------------------------------------------------
 
 perf <- xts(returns[,-1], order.by = returns$eom)
@@ -274,6 +276,62 @@ ggsave(
 rm(df, gg, target_monthly_vol)
 
 
+
+
+
+# Regimes -----------------------------------------------------------------
+
+
+# Load in macro data
+load("data/macro.RData")
+
+# Join macro data to returns
+regime <- left_join(returns, macro, join_by(eom == date))
+
+# Keep only whats necessary
+regime <- regime |>
+  select(eom, long, market, cpi, fed) |> 
+  mutate(
+    cpi_regime = sign(cpi - lag(cpi)),
+    fed_regime = sign(fed - lag(fed))
+  )
+
+
+fed <- regime |> 
+  group_by(fed_regime) |> 
+  summarise(
+    long = 100 * mean(long, na.rm = TRUE),
+    market = 100 * mean(market, na.rm = TRUE),
+    macro = "fed",
+    .groups = "drop"
+  ) |> 
+  rename(
+    regime := fed_regime
+  )
+
+cpi = regime |> 
+  group_by(cpi_regime) |> 
+  summarise(
+    long = 100 * mean(long, na.rm = TRUE),
+    market = 100 * mean(market, na.rm = TRUE),
+    macro = "cpi",
+    .groups = "drop"
+  ) |> 
+  rename(
+    regime := cpi_regime
+  )
+
+
+
+
+regime <- rbind(fed, cpi) |> na.omit()
+
+print(
+  xtable(regime, caption = "regimes"),
+  file = "results/long_only/regimes.txt"
+)
+
+rm(fed, cpi, macro)
 
 # Sharpe Ratios -----------------------------------------------------------
 

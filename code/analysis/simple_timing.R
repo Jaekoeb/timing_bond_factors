@@ -66,7 +66,7 @@ corrplot(cor_matrix,
          tl.srt = 45,            # Rotate text labels for better readability
          tl.cex = 0.7,           # Size of text labels (adjust as needed)
          col = COL2('RdYlBu'),    # Use a Red-Yellow-Blue color palette (good for correlations)
-         title = "Familiarity between Timing Signals",
+         title = "Correlation between Timing Signals",
          mar = c(0,0,1,0)        # Adjust plot margins c(bottom, left, top, right)
 )
 
