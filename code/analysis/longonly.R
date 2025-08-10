@@ -161,6 +161,9 @@ turn <- turn |>
 # remove first observation
 turn <- turn |> filter(eom != "2002-09-30")
 
+# Save data frame for later transaction cost estimation
+turnover <- turn
+
 turn <- turn |>
   mutate(turnover = 100 * turnover) |> 
   group_by(portfolio) |> 
@@ -363,6 +366,176 @@ print(
   file = "results/long_only/sharpe.txt"
 )
 
+
+
+
+# Transaction Costs -------------------------------------------------------
+
+# Values from Ivashchenkos paper
+df <- data.frame(
+  turnover = c(1.52, 1.83, 13.15, 9.79, 43.44, 20.74, 75.00, 72.39, 73.69),
+  gross_return = c(0.38, 0.32, 0.68, 0.61, 0.62, 0.63, 0.64, 0.72, 0.65),
+  net_return = c(0.37, 0.30, 0.59, 0.54, 0.33, 0.48, 0.25, 0.33, 0.26)
+)
+
+
+# Change all units from % to values
+df <- df |> mutate(across(everything(), ~ ./100))
+
+df$difference = df$gross_return - df$net_return
+
+# Estimate transaction costs based on turnover
+tc_reg <- lm(difference ~ turnover, data = df)
+
+# Save regression results
+stargazer(
+  tc_reg,
+  type = "latex",
+  out = "results/long_only/ivashchenko.tex"
+)
+
+
+# adjust names in turnover
+turnover <- turnover |> 
+  mutate(
+    portfolio = case_when(
+      portfolio == "flag_long" ~ "long",
+      portfolio == "flag_top10" ~ "top_10",
+      portfolio == "flag_top1" ~ "top_1",
+      
+    )
+  )
+
+# Add artificial market turnover data
+turn_market <- data.frame(
+  eom = unique(turnover$eom),
+  portfolio = "market",
+  turnover = 0.0152
+)
+
+turnover <- rbind(turnover, turn_market)
+
+# Predict transaction costs
+turnover$cost <- predict(tc_reg, turnover)
+
+# Pivot longer
+transaction <- returns |>  pivot_longer(!eom, names_to = "portfolio", values_to = "return")
+
+# Merge
+transaction <- left_join(transaction, turnover, join_by(eom == eom, portfolio == portfolio))
+
+# Compute returns net of costs
+transaction$net_return <- transaction$return - transaction$cost
+
+# Create table of simple effect of Transaction Costs on Returns
+trans_returns <- transaction |> 
+  group_by(portfolio) |> 
+  summarise(
+    return = 100 * mean(return),
+    cost = 100 * mean(cost, na.rm = TRUE),
+    net_return = 100 * mean(net_return, na.rm = TRUE)
+  ) |> 
+  arrange(desc(return))
+
+print(
+  xtable(trans_returns, caption = "Impact of Transaction Costs on Returns"),
+  file = "results/long_only/transaction_returns.txt"
+)
+
+
+# Sharpe Ratio Helper Function
+sharpe_ratio <- function(returns) {
+  mean(returns, na.rm = TRUE) / sd(returns, na.rm = TRUE) * sqrt(12)
+}
+
+sharpe_ratios_summary <- transaction %>%
+  group_by(portfolio) %>%
+  summarise(
+    SR_return = sharpe_ratio(return),
+    SR_net_return = sharpe_ratio(net_return),
+    SR_difference = SR_return - SR_net_return
+  )
+
+
+# Define a small offset for the arrows and points
+arrow_head_offset <- 0.015 # How much the arrow head is nudged from the net_return point
+arrow_tail_offset <- 0.015 # How much the arrow tail is nudged from the return point
+
+# Create the ggplot
+gg <- ggplot(sharpe_ratios_summary, aes(x = portfolio)) +
+  # Arrow from SR_return to SR_net_return, always pointing downwards
+  geom_segment(aes(y = SR_return - arrow_tail_offset,
+                   yend = SR_net_return + arrow_head_offset,
+                   xend = portfolio),
+               arrow = arrow(length = unit(0.2, "cm"), type = "closed"), # Smaller arrow size
+               size = 0.6, # Smaller arrow line thickness
+               color = "black") + # Arrow color black
+  
+  geom_point(aes(y = SR_return, color = "Before"),
+             size = 3, fill = "#FF5100") + # Custom fill color
+  
+  geom_point(aes(y = SR_net_return, color = "After"),
+             size = 3, fill = "#5100FF") + # Custom fill color
+  
+  # Add labels and title
+  labs(
+    title = "Impact of Transaction Costs on Portfolio Sharpe Ratios",
+    # Remove x-axis label
+    y = "Sharpe Ratio",
+    color = ""
+  ) +
+  # Use theme_bw and adjust legend position
+  theme_bw() +
+  theme(
+    legend.position = "bottom", # Legend below the graph
+    axis.title.x = element_blank() # Remove x-axis label
+  ) +
+  # Adjust legend and colors (only for points)
+  scale_color_manual(values = c(
+    "Before" = "#FF5100", # Legend key color for Return SR
+    "After" = "#5100FF"  # Legend key color for Net Return SR
+  ))
+
+
+ggsave(
+  filename = "results/long_only/transaction_sharpe.pdf",
+  plot = gg,
+  unit = "cm",
+  width = 18,
+  height = 12
+)
+
+
+# Regressions
+transaction <- transaction |> 
+  select(eom, portfolio, net_return) |> 
+  pivot_wider(names_from = portfolio, values_from = net_return)
+
+
+# Scale to %
+transaction <- transaction |> mutate(across(-eom, ~ 100*.))
+
+# Run your regressions
+reg1 <- lm(long ~ market, data = transaction)
+reg2 <- lm(top_10 ~ market, data = transaction)
+reg3 <- lm(top_1 ~ market, data = transaction)
+
+# Compute Newey-West standard errors
+# Specify the lag parameter based on your data frequency
+nw_se1 <- sqrt(diag(NeweyWest(reg1, lag = 6, prewhite = FALSE)))
+nw_se2 <- sqrt(diag(NeweyWest(reg2, lag = 6, prewhite = FALSE)))
+nw_se3 <- sqrt(diag(NeweyWest(reg3, lag = 6, prewhite = FALSE)))
+
+# Create list of standard errors for stargazer
+se_list <- list(nw_se1, nw_se2, nw_se3)
+
+# Save regression results with Newey-West standard errors
+stargazer(reg1, reg2, reg3, 
+          type = "latex", 
+          se = se_list,
+          out = "results/long_only/transaction_regression.tex")
+
+rm(reg1, reg2, reg3, nw_se1, nw_se2, nw_se3, se_list)
 
 
 # Regressions -------------------------------------------------------------
