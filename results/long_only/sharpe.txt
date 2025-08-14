@@ -1,0 +1,15 @@
+% latex table generated in R 4.2.2 by xtable 1.8-4 package
+% Mon Aug 11 15:24:56 2025
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlrrrrrr}
+  \hline
+ & Strategy & Obs. & Strategy SR & Market SR & Difference & T-Stat & P-Value \\ 
+  \hline
+1 & Long Only & 229.00 & 0.35 & 0.29 & 0.06 & 1.71 & 0.09 \\ 
+  2 & Top 1\% & 229.00 & 0.29 & 0.29 & 0.00 & 0.01 & 0.99 \\ 
+  3 & Top 100 & 229.00 & 0.38 & 0.29 & 0.09 & 2.15 & 0.03 \\ 
+   \hline
+\end{tabular}
+\caption{Long Only Sharpe Ratios} 
+\end{table}

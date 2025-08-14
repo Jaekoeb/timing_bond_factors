@@ -1,0 +1,18 @@
+% latex table generated in R 4.2.2 by xtable 1.8-4 package
+% Mon Aug 11 15:24:56 2025
+\begin{table}[ht]
+\centering
+\begin{tabular}{rrrrl}
+  \hline
+ & regime & long & market & macro \\ 
+  \hline
+1 & -1.00 & 0.40 & 0.98 & fed \\ 
+  2 & 0.00 & 0.97 & 0.50 & fed \\ 
+  3 & 1.00 & 0.03 & 0.12 & fed \\ 
+  4 & -1.00 & 1.06 & 0.71 & cpi \\ 
+  5 & 0.00 & 0.89 & 0.44 & cpi \\ 
+  6 & 1.00 & 0.56 & 0.32 & cpi \\ 
+   \hline
+\end{tabular}
+\caption{regimes} 
+\end{table}

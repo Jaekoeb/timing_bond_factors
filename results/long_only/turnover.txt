@@ -1,0 +1,15 @@
+% latex table generated in R 4.2.2 by xtable 1.8-4 package
+% Mon Aug 11 15:24:54 2025
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlrrrrr}
+  \hline
+ & portfolio & min & q1 & median & q3 & max \\ 
+  \hline
+1 & flag\_long & 9.18 & 27.92 & 31.48 & 35.13 & 50.99 \\ 
+  2 & flag\_top1 & 8.85 & 18.07 & 23.50 & 30.04 & 50.00 \\ 
+  3 & flag\_top10 & 6.82 & 19.71 & 23.63 & 28.08 & 41.55 \\ 
+   \hline
+\end{tabular}
+\caption{turnover} 
+\end{table}

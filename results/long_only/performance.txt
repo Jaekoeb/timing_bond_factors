@@ -1,0 +1,17 @@
+% latex table generated in R 4.2.2 by xtable 1.8-4 package
+% Mon Aug 11 15:24:54 2025
+\begin{table}[ht]
+\centering
+\begin{tabular}{rrrrr}
+  \hline
+ & long & top\_1 & top\_10 & market \\ 
+  \hline
+Ann. Return & 10.07 & 13.56 & 12.69 & 5.73 \\ 
+  Ann. Volatility & 8.16 & 13.29 & 9.37 & 5.64 \\ 
+  Worst Drawdown & 19.52 & 25.81 & 20.02 & 13.07 \\ 
+  Sharpe Ratio & 1.23 & 1.02 & 1.35 & 1.02 \\ 
+  VaR (95\%) & -3.04 & -5.17 & -3.41 & -2.19 \\ 
+   \hline
+\end{tabular}
+\caption{Multi-Factor Metrics} 
+\end{table}

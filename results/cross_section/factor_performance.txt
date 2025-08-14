@@ -1,0 +1,41 @@
+
+> xtable::xtable(perf,
++                caption = "Factor Metrics")
+% latex table generated in R 4.2.2 by xtable 1.8-4 package
+% Tue Aug  5 14:55:03 2025
+\begin{table}[ht]
+\centering
+\begin{tabular}{rrrrr}
+  \hline
+ & Ann. Return & Ann. Volatility & Worst Drawdown & Sharpe Ratio \\ 
+  \hline
+amt\_out & -0.33 & 3.51 & 10.45 & -0.09 \\ 
+  bond\_age & -2.70 & 5.42 & 41.49 & -0.50 \\ 
+  btm & 7.96 & 9.66 & 20.14 & 0.82 \\ 
+  dura & -3.44 & 7.18 & 52.18 & -0.48 \\ 
+  gspread & 10.43 & 11.36 & 22.30 & 0.92 \\ 
+  mkt\_val & 2.47 & 6.43 & 14.69 & 0.39 \\ 
+  rating & 1.34 & 4.87 & 19.10 & 0.27 \\ 
+  spread & 3.63 & 6.59 & 17.58 & 0.55 \\ 
+  yields & 10.98 & 12.12 & 25.85 & 0.91 \\ 
+  def & 2.55 & 5.91 & 23.36 & 0.43 \\ 
+  market & 6.00 & 5.65 & 13.07 & 1.06 \\ 
+  str & 7.37 & 7.69 & 13.62 & 0.96 \\ 
+  term & 3.21 & 5.25 & 8.19 & 0.61 \\ 
+  mom3 & -4.70 & 8.08 & 60.82 & -0.58 \\ 
+  mom6 & -3.69 & 8.12 & 52.83 & -0.45 \\ 
+  mom9 & -3.79 & 8.57 & 51.51 & -0.44 \\ 
+  mom12 & -3.93 & 8.86 & 53.22 & -0.44 \\ 
+  es10 & 5.48 & 10.31 & 29.66 & 0.53 \\ 
+  kurt & 2.32 & 4.72 & 9.60 & 0.49 \\ 
+  skew & 2.16 & 4.49 & 8.80 & 0.48 \\ 
+  var10 & 3.82 & 9.57 & 35.83 & 0.40 \\ 
+  var5 & 4.59 & 8.97 & 27.23 & 0.51 \\ 
+  vola & 4.29 & 10.02 & 31.12 & 0.43 \\ 
+  ltr & 0.07 & 4.37 & 15.99 & 0.02 \\ 
+   \hline
+\end{tabular}
+\caption{Factor Metrics} 
+\end{table}
+
+> sink()

@@ -1,0 +1,21 @@
+% latex table generated in R 4.2.2 by xtable 1.8-4 package
+% Mon Aug 11 15:24:49 2025
+\begin{table}[ht]
+\centering
+\begin{tabular}{rllrrrrr}
+  \hline
+ & flag\_type & characteristic & p5 & q1 & median & q3 & p95 \\ 
+  \hline
+1 & flag\_long & duration & 1.44 & 3.35 & 6.24 & 10.97 & 15.70 \\ 
+  2 & flag\_top1 & duration & 1.40 & 2.98 & 5.23 & 11.15 & 14.46 \\ 
+  3 & flag\_top10 & duration & 1.38 & 3.03 & 5.35 & 11.54 & 15.34 \\ 
+  4 & flag\_long & market\_value & 8.91 & 126.95 & 350.22 & 674.08 & 1726.67 \\ 
+  5 & flag\_top1 & market\_value & 500.69 & 1031.55 & 1990.98 & 3215.07 & 5618.64 \\ 
+  6 & flag\_top10 & market\_value & 268.13 & 544.54 & 1005.84 & 1828.80 & 3543.60 \\ 
+  7 & flag\_long & yield & 1.46 & 3.31 & 4.68 & 6.31 & 11.08 \\ 
+  8 & flag\_top1 & yield & 2.26 & 4.33 & 5.89 & 7.66 & 14.25 \\ 
+  9 & flag\_top10 & yield & 1.74 & 3.90 & 5.35 & 7.12 & 12.91 \\ 
+   \hline
+\end{tabular}
+\caption{characteristics of long only} 
+\end{table}

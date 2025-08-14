@@ -1,0 +1,16 @@
+% latex table generated in R 4.2.2 by xtable 1.8-4 package
+% Wed Jun 18 15:48:37 2025
+\begin{table}[ht]
+\centering
+\begin{tabular}{rrrr}
+  \hline
+ & port & bench & diff \\ 
+  \hline
+Ann. Return & 6.49 & 2.35 & 4.14 \\ 
+  Ann. Volatility & 6.78 & 3.10 & 3.68 \\ 
+  Worst Drawdown & 7.22 & 8.86 & -1.64 \\ 
+  Sharpe Ratio & 0.96 & 0.76 & 0.20 \\ 
+   \hline
+\end{tabular}
+\caption{Multi-Factor Metrics} 
+\end{table}

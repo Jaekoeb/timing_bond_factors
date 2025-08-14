@@ -1,0 +1,16 @@
+% latex table generated in R 4.2.2 by xtable 1.8-4 package
+% Mon Aug 11 15:24:57 2025
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlrrr}
+  \hline
+ & portfolio & return & cost & net\_return \\ 
+  \hline
+1 & top\_1 & 1.13 & 0.15 & 0.99 \\ 
+  2 & top\_10 & 1.04 & 0.15 & 0.88 \\ 
+  3 & long & 0.83 & 0.18 & 0.64 \\ 
+  4 & market & 0.48 & 0.03 & 0.45 \\ 
+   \hline
+\end{tabular}
+\caption{Impact of Transaction Costs on Returns} 
+\end{table}

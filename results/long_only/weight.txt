@@ -1,0 +1,14 @@
+% latex table generated in R 4.2.2 by xtable 1.8-4 package
+% Mon Aug 11 15:24:48 2025
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlrrrrr}
+  \hline
+ & strategy & min & q1 & median & q3 & max \\ 
+  \hline
+1 & top\_1 & 0.05 & 0.09 & 0.10 & 0.12 & 0.19 \\ 
+  2 & top\_10 & 0.30 & 0.40 & 0.42 & 0.47 & 0.61 \\ 
+   \hline
+\end{tabular}
+\caption{weight} 
+\end{table}
